@@ -43,9 +43,11 @@ class ResourceCard(QFrame):
         self.file_label.setToolTip("Nome della sequenza test associata. Costituisce il collegamento logico con la sequenza.")
         layout.addWidget(self.file_label)
 
-        self.meta_label = QLabel(meta_text)
-        self.meta_label.setStyleSheet("color: #475467;")
-        layout.addWidget(self.meta_label)
+        self.meta_label = None
+        if meta_text:
+            self.meta_label = QLabel(meta_text)
+            self.meta_label.setStyleSheet("color: #475467;")
+            layout.addWidget(self.meta_label)
 
         actions_row = QHBoxLayout()
         self.select_button = QPushButton("Sel")

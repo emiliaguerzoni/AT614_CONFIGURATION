@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -64,17 +65,20 @@ class EditorShell(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
 
         self.resource_tree = ResourceTree(project)
-        self.resource_tree.setFixedWidth(240)
+        self.resource_tree.setMinimumWidth(220)
+        self.resource_tree.setMaximumWidth(320)
         self.resource_tree.resource_activated.connect(self.show_selection)
-        layout.addWidget(self.resource_tree)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(self.resource_tree)
 
         center_widget = QWidget()
         center_layout = QVBoxLayout(center_widget)
         center_layout.setContentsMargins(0, 0, 0, 0)
-        center_layout.setSpacing(12)
+        center_layout.setSpacing(8)
 
         self.title_icon = QLabel("□")
         self.title_icon.setStyleSheet("font-size: 20px; font-weight: 600;")
@@ -120,15 +124,21 @@ class EditorShell(QWidget):
         self.content_host = QWidget()
         self.content_layout = QVBoxLayout(self.content_host)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(12)
+        self.content_layout.setSpacing(8)
         self.content_scroll.setWidget(self.content_host)
         center_layout.addWidget(self.content_scroll, 1)
 
-        layout.addWidget(center_widget, 1)
+        splitter.addWidget(center_widget)
 
         self.right_panel = RPanel()
-        self.right_panel.setFixedWidth(260)
-        layout.addWidget(self.right_panel)
+        self.right_panel.setMinimumWidth(220)
+        self.right_panel.setMaximumWidth(320)
+        splitter.addWidget(self.right_panel)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
+
+        layout.addWidget(splitter, 1)
 
         self.right_panel.elimina_button.clicked.connect(self.delete_current_resource)
         self.right_panel.rinomina_button.clicked.connect(self.rename_current_resource)

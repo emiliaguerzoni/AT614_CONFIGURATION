@@ -68,7 +68,7 @@ class DistEditor(QWidget):
             card = ResourceCard(
                 title=f"Sezione {section_index}",
                 file_name=f"{section_code}.csv" if section_code else "— non configurato —",
-                meta_text="Sequenza collegata" if section_code else "Sezione non attiva · Attiva sezione",
+                meta_text="" if section_code else "Sezione non attiva · Attiva sezione",
                 state_text="ok" if section_code else "opz.",
                 editable=True,
             )

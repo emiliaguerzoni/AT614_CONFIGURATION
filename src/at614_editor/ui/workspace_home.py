@@ -18,8 +18,8 @@ class WorkspaceHome(QWidget):
         self._summary_labels: list[QLabel] = []
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
 
         title_label = QLabel("AT614 Configuration Editor")
         title_label.setStyleSheet("font-size: 28px; font-weight: 700;")
@@ -37,8 +37,8 @@ class WorkspaceHome(QWidget):
         summary_frame = QFrame()
         summary_frame.setFrameShape(QFrame.Shape.StyledPanel)
         summary_layout = QVBoxLayout(summary_frame)
-        summary_layout.setContentsMargins(16, 16, 16, 16)
-        summary_layout.setSpacing(10)
+        summary_layout.setContentsMargins(12, 12, 12, 12)
+        summary_layout.setSpacing(8)
 
         for summary_text in self._build_summary_lines(project):
             label = QLabel(summary_text)

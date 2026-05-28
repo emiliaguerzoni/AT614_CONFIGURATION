@@ -8,6 +8,7 @@ import traceback
 from pathlib import Path
 
 from PySide6.QtCore import qInstallMessageHandler, QtMsgType
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
 from at614_editor import __version__
@@ -118,6 +119,27 @@ def setup_logging() -> None:
     root_logger.info(f"Log file: {log_file}")
 
 
+def apply_light_palette(app: QApplication) -> None:
+    app.setStyle("Fusion")
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor("#F5F7FA"))
+    palette.setColor(QPalette.WindowText, QColor("#101828"))
+    palette.setColor(QPalette.Base, QColor("#FFFFFF"))
+    palette.setColor(QPalette.AlternateBase, QColor("#F0F3F8"))
+    palette.setColor(QPalette.ToolTipBase, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ToolTipText, QColor("#101828"))
+    palette.setColor(QPalette.Text, QColor("#101828"))
+    palette.setColor(QPalette.Button, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ButtonText, QColor("#101828"))
+    palette.setColor(QPalette.Link, QColor("#2563EB"))
+    palette.setColor(QPalette.Highlight, QColor("#2563EB"))
+    palette.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
+    app.setPalette(palette)
+    app.setStyleSheet(
+        "QToolTip { color: #101828; background-color: #FFFFFF; border: 1px solid #D0D5DD; }"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     setup_logging()
     parser = build_parser()
@@ -134,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         project_root = discover_project_root(Path.cwd())
     app = QApplication.instance() or QApplication([])
+    apply_light_palette(app)
     window = MainWindow(project_root=project_root)
     window.show()
 
