@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from PySide6.QtCore import Signal
+
+logger = logging.getLogger(__name__)
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -157,6 +160,8 @@ class EditorShell(QWidget):
     def show_selection(self, selection: ResourceTreeSelection) -> None:
         if selection is None:
             return
+
+        logger.debug(f"EditorShell: selezione risorsa - categoria={selection.category_key}, path={getattr(selection, 'path', None)}")
 
         # Ignora se è la stessa selezione
         if selection == self._last_selection:
@@ -402,20 +407,25 @@ class EditorShell(QWidget):
 
     def _show_test_sequence(self, path: Path) -> None:
         assert self.project is not None
-        self._current_reference_context = self._reference_labels_for(path)
-        self.right_panel.set_context(self._current_reference_context, [])
-        self._replace_content(
-            [
-                SeqEditor(
-                    self.project,
-                    path,
-                    open_resource=self.open_resource_path,
-                    show_usages=self.show_resource_usages,
-                    update_validation=self.right_panel.update_validation,
-                    update_status=self._set_validation_badge,
-                )
-            ]
-        )
+        logger.info(f"EditorShell: apertura sequenza test {path.name}")
+        try:
+            self._current_reference_context = self._reference_labels_for(path)
+            self.right_panel.set_context(self._current_reference_context, [])
+            self._replace_content(
+                [
+                    SeqEditor(
+                        self.project,
+                        path,
+                        open_resource=self.open_resource_path,
+                        show_usages=self.show_resource_usages,
+                        update_validation=self.right_panel.update_validation,
+                        update_status=self._set_validation_badge,
+                    )
+                ]
+            )
+            logger.info(f"EditorShell: sequenza test {path.name} aperta con successo")
+        except Exception as e:
+            logger.exception(f"EditorShell: ERRORE apertura sequenza test {path.name}: {e}")
 
     def _show_point_series(self, category_key: str, path: Path) -> None:
         assert self.project is not None

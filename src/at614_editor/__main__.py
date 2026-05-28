@@ -3,8 +3,11 @@ from __future__ import annotations
 import argparse
 import logging
 import logging.handlers
+import sys
+import traceback
 from pathlib import Path
 
+from PySide6.QtCore import qInstallMessageHandler, QtMsgType
 from PySide6.QtWidgets import QApplication
 
 from at614_editor import __version__
@@ -42,6 +45,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _qt_message_handler(msg_type: QtMsgType, context, message: str) -> None:
+    qt_logger = logging.getLogger("Qt")
+    level_map = {
+        QtMsgType.QtDebugMsg: logging.DEBUG,
+        QtMsgType.QtInfoMsg: logging.INFO,
+        QtMsgType.QtWarningMsg: logging.WARNING,
+        QtMsgType.QtCriticalMsg: logging.ERROR,
+        QtMsgType.QtFatalMsg: logging.CRITICAL,
+    }
+    level = level_map.get(msg_type, logging.WARNING)
+    qt_logger.log(level, message)
+
+
+def _unhandled_exception_hook(exc_type, exc_value, exc_tb) -> None:
+    root_logger = logging.getLogger()
+    root_logger.critical(
+        "ECCEZIONE NON GESTITA:\n" + "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+    )
+
+
 def setup_logging() -> None:
     log_dir = Path.home() / ".at614-editor" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -61,7 +84,8 @@ def setup_logging() -> None:
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
 
-    console_handler = logging.StreamHandler()
+    # stdout per vedere i log nel terminale
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     console_handler.setLevel(logging.DEBUG)
 
@@ -70,9 +94,16 @@ def setup_logging() -> None:
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
+    # Cattura eccezioni Python non gestite
+    sys.excepthook = _unhandled_exception_hook
+
+    # Cattura messaggi Qt (warning, critical, etc.)
+    qInstallMessageHandler(_qt_message_handler)
+
     root_logger.info("=" * 80)
     root_logger.info("AT614 Configuration Editor - Avvio applicazione")
     root_logger.info("=" * 80)
+    root_logger.info(f"Log file: {log_file}")
 
 
 def main(argv: list[str] | None = None) -> int:

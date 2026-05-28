@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -7,6 +8,8 @@ from typing import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+
+logger = logging.getLogger(__name__)
     QAbstractItemView,
     QComboBox,
     QHeaderView,
@@ -88,13 +91,20 @@ class SeqEditor(QWidget):
         parent=None,
     ) -> None:
         super().__init__(parent)
+        logger.info(f"SeqEditor: inizializzazione per {source_path.name}")
         self.project = project
         self.source_path = source_path
         self.open_resource = open_resource
         self.show_usages = show_usages
         self.update_validation = update_validation
         self.update_status = update_status
-        self.sequence = project.test_sequences[source_path]
+        try:
+            self.sequence = project.test_sequences[source_path]
+            logger.debug(f"SeqEditor: sequenza caricata con {len(self.sequence.rows)} righe")
+        except KeyError:
+            logger.error(f"SeqEditor: sequenza non trovata per {source_path}")
+            logger.debug(f"SeqEditor: chiavi disponibili: {[p.name for p in project.test_sequences]}")
+            raise
         self.file_picker = FilePicker(project)
         self.working_rows = [
             TestRow(name=row.name, test_id=row.test_id, index_raw=row.index_raw, parameters=list(row.parameters))
@@ -285,13 +295,18 @@ class SeqEditor(QWidget):
 
     def _load_row(self, row_index: int) -> None:
         row = self.working_rows[row_index]
+        logger.debug(f"SeqEditor: caricamento riga {row_index} - test_id={row.test_id!r}")
         self._ensure_row_parameter_capacity(row)
         self._loading_row = True
-        self.name_field.setText(row.name)
-        self.test_id_field.setCurrentText(row.test_id)
-        self.index_field.setText(row.index_raw)
-        self._render_parameter_details(row)
-        self._loading_row = False
+        try:
+            self.name_field.setText(row.name)
+            self.test_id_field.setCurrentText(row.test_id)
+            self.index_field.setText(row.index_raw)
+            self._render_parameter_details(row)
+        except Exception as e:
+            logger.exception(f"SeqEditor: errore durante il caricamento della riga {row_index}: {e}")
+        finally:
+            self._loading_row = False
         self._publish_current_validation()
 
     def _clear_parameter_details(self) -> None:
@@ -312,6 +327,7 @@ class SeqEditor(QWidget):
     def _render_parameter_details(self, row: TestRow) -> None:
         self._clear_parameter_details()
         descriptors = describe_test_parameters(row)
+        logger.debug(f"SeqEditor: render parametri per test_id={row.test_id!r}, {len(descriptors)} descrittori")
 
         if not descriptors:
             empty_label = QLabel("Nessun parametro specifico")
@@ -326,29 +342,35 @@ class SeqEditor(QWidget):
             wrapper_layout.setSpacing(6)
 
             wrapper_layout.addWidget(QLabel(descriptor.label))
-            raw_value = row.parameters[descriptor.parameter_index - 1]
+            raw_value = row.parameters[descriptor.parameter_index - 1] if descriptor.parameter_index - 1 < len(row.parameters) else ""
 
             if descriptor.editor_kind == "file_ref":
-                def make_picker_callback(resource_type: str | None, file_widget: FileWidget) -> Callable[[], None]:
+                def make_picker_callback(
+                    resource_type: str | None,
+                    file_widget: FileWidget,
+                    label: str,
+                ) -> Callable[[], None]:
                     def picker_callback() -> None:
-                        selected_path = self.file_picker.pick_file(
-                            parent=self,
-                            title=f"Seleziona {descriptor.label.lower()}",
-                            resource_type=resource_type,
-                        )
-                        if selected_path:
-                            file_widget.name_label.setText(selected_path)
-                            self._handle_live_edit()
+                        try:
+                            selected_path = self.file_picker.pick_file(
+                                parent=self,
+                                title=f"Seleziona {label.lower()}",
+                                resource_type=resource_type,
+                            )
+                            if selected_path:
+                                file_widget.name_label.setText(selected_path)
+                                self._handle_live_edit("")
+                        except Exception as e:
+                            logger.exception(f"SeqEditor: errore nel picker callback: {e}")
                     return picker_callback
 
                 field_widget = FileWidget(
                     self._icon_for_resource_type(descriptor.resource_type),
                     editable=True,
-                    on_select=make_picker_callback(descriptor.resource_type, None),  # Sarà impostato dopo
                 )
-                # Ora aggiorna il callback con il widget corretto
-                field_widget.select_button.clicked.disconnect()
-                field_widget.select_button.clicked.connect(make_picker_callback(descriptor.resource_type, field_widget))
+                field_widget.select_button.clicked.connect(
+                    make_picker_callback(descriptor.resource_type, field_widget, descriptor.label)
+                )
 
                 tooltip = get_tooltip_for_descriptor(descriptor, row.test_id)
                 if tooltip:
