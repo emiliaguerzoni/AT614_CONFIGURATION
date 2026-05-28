@@ -267,35 +267,49 @@ class OutputViewer(QWidget):
             self.x_axis_combo.addItem(header)
         self.x_axis_combo.blockSignals(False)
 
+        self.y_axes_list.blockSignals(True)
         self.y_axes_list.clear()
         for header in headers:
             self.y_axes_list.addItem(header)
-
-        if len(headers) >= 2:
-            self.y_axes_list.item(1).setSelected(True)
+        # Auto-seleziona tutte le colonne tranne la prima (X) come assi Y
+        for i in range(1, self.y_axes_list.count()):
+            self.y_axes_list.item(i).setSelected(True)
+        self.y_axes_list.blockSignals(False)
 
         self._set_actions_enabled(True)
         self._refresh_plot_summary()
 
-    # ------------------------------------------------------------------ plotting placeholder
+    # ------------------------------------------------------------------ plotting
 
     def _refresh_plot_summary(self) -> None:
         if self.selected_file is None:
             self.chart_stage.title_label.setText("Output banco")
             self.chart_stage.legend_label.setText("X / Y selezionabili")
-            self.chart_stage.placeholder_label.setText("Anteprima grafico")
+            self.chart_stage.plot_series([], [])
             return
 
-        x_label = self.x_axis_combo.currentText() or "—"
+        x_label = self.x_axis_combo.currentText() or ""
         y_selected = [item.text() for item in self.y_axes_list.selectedItems()]
         y_label = " · ".join(y_selected) if y_selected else "—"
 
         self.chart_stage.title_label.setText(self.selected_file.name)
-        self.chart_stage.legend_label.setText(f"X: {x_label} · Y: {y_label}")
-        self.chart_stage.placeholder_label.setText(
-            f"Anteprima grafico — {len(self.csv_rows)} righe, "
-            f"{len(self.csv_headers)} colonne disponibili"
-        )
+        self.chart_stage.legend_label.setText(f"X: {x_label} - Y: {y_label}")
+
+        if x_label and y_selected and self.csv_headers:
+            x_idx = self.csv_headers.index(x_label) if x_label in self.csv_headers else 0
+            y_indices = [self.csv_headers.index(y) for y in y_selected if y in self.csv_headers]
+
+            filtered_rows: list[list[str]] = []
+            for row in self.csv_rows:
+                if len(row) > x_idx:
+                    filtered_row = [row[x_idx]] + [
+                        row[yi] if len(row) > yi else "" for yi in y_indices
+                    ]
+                    filtered_rows.append(filtered_row)
+
+            self.chart_stage.plot_series(filtered_rows, [x_label] + y_selected)
+        else:
+            self.chart_stage.plot_series([], [])
 
     # ------------------------------------------------------------------ actions
 

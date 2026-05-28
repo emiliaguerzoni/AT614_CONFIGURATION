@@ -1,0 +1,61 @@
+{
+  "indexed_at": 1780000389.588907,
+  "files": [
+    {
+      "relative_path": "210319_130859_4.csv",
+      "folder": "",
+      "name": "210319_130859_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "210319_130905_4.csv",
+      "folder": "",
+      "name": "210319_130905_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "210319_131021_4.csv",
+      "folder": "",
+      "name": "210319_131021_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "210319_131032_4.csv",
+      "folder": "",
+      "name": "210319_131032_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "210319_133808_4.csv",
+      "folder": "",
+      "name": "210319_133808_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "210319_133827_4.csv",
+      "folder": "",
+      "name": "210319_133827_4.csv",
+      "created_at": 1779999272.5491142,
+      "modified_at": 1779999272.5491142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "210319_140628_4.csv",
+      "folder": "",
+      "name": "210319_140628_4.csv",
+      "created_at": 1779999272.5491142,
+      "modified_at": 1779999272.5491142,
+      "size_bytes": 3592
+    }
+  ]
+}

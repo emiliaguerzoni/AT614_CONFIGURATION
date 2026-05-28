@@ -1,0 +1,117 @@
+{
+  "indexed_at": 1780000353.394826,
+  "files": [
+    {
+      "relative_path": "15.1001.347/200717_170718_1.csv",
+      "folder": "15.1001.347",
+      "name": "200717_170718_1.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 174
+    },
+    {
+      "relative_path": "15.1001.347/200717_171607_1.csv",
+      "folder": "15.1001.347",
+      "name": "200717_171607_1.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 82
+    },
+    {
+      "relative_path": "15.1001.347/200717_172255_1.csv",
+      "folder": "15.1001.347",
+      "name": "200717_172255_1.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 81
+    },
+    {
+      "relative_path": "15.1001.347/2029-001_200717_173118_1.csv",
+      "folder": "15.1001.347",
+      "name": "2029-001_200717_173118_1.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 39168
+    },
+    {
+      "relative_path": "15.1001.347/2029-001_200717_173347_1.csv",
+      "folder": "15.1001.347",
+      "name": "2029-001_200717_173347_1.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 40206
+    },
+    {
+      "relative_path": "15.1001.356_C/Acquisizione_211213_162413_0.csv",
+      "folder": "15.1001.356_C",
+      "name": "Acquisizione_211213_162413_0.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 0
+    },
+    {
+      "relative_path": "15.1001.356_C_EVO/210319_130859_4.csv",
+      "folder": "15.1001.356_C_EVO",
+      "name": "210319_130859_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "15.1001.356_C_EVO/210319_130905_4.csv",
+      "folder": "15.1001.356_C_EVO",
+      "name": "210319_130905_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "15.1001.356_C_EVO/210319_131021_4.csv",
+      "folder": "15.1001.356_C_EVO",
+      "name": "210319_131021_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "15.1001.356_C_EVO/210319_131032_4.csv",
+      "folder": "15.1001.356_C_EVO",
+      "name": "210319_131032_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "15.1001.356_C_EVO/210319_133808_4.csv",
+      "folder": "15.1001.356_C_EVO",
+      "name": "210319_133808_4.csv",
+      "created_at": 1779999272.5412142,
+      "modified_at": 1779999272.5412142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "15.1001.356_C_EVO/210319_133827_4.csv",
+      "folder": "15.1001.356_C_EVO",
+      "name": "210319_133827_4.csv",
+      "created_at": 1779999272.5491142,
+      "modified_at": 1779999272.5491142,
+      "size_bytes": 47
+    },
+    {
+      "relative_path": "15.1001.356_C_EVO/210319_140628_4.csv",
+      "folder": "15.1001.356_C_EVO",
+      "name": "210319_140628_4.csv",
+      "created_at": 1779999272.5491142,
+      "modified_at": 1779999272.5491142,
+      "size_bytes": 3592
+    },
+    {
+      "relative_path": "SOLO GRADINO/GRADINO_210325_145626_1.csv",
+      "folder": "SOLO GRADINO",
+      "name": "GRADINO_210325_145626_1.csv",
+      "created_at": 1779999272.5507426,
+      "modified_at": 1779999272.5507426,
+      "size_bytes": 4097
+    }
+  ]
+}
