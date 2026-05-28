@@ -72,6 +72,7 @@ class TestRowTable(QTableWidget):
 
 
 class SeqEditor(QWidget):
+    state_changed = Signal()
     editor_name = "SeqEditor"
     supports_save = True
     supports_duplicate = True
@@ -236,6 +237,7 @@ class SeqEditor(QWidget):
         self.row_table.blockSignals(False)
         self._update_summary()
         self.current_row_index = None
+        self.state_changed.emit()
 
         if not self.working_rows:
             self.name_field.clear()
@@ -441,6 +443,7 @@ class SeqEditor(QWidget):
 
         self._update_row_validation(row_index, publish=row_index == self.current_row_index)
         self._update_table_row(row_index, row)
+        self.state_changed.emit()
 
     def _handle_live_edit(self, _value: str) -> None:
         if self.current_row_index is None or self._loading_row:
@@ -652,6 +655,9 @@ class SeqEditor(QWidget):
             line_ending=self.sequence.line_ending,
             endswith_newline=self.sequence.endswith_newline,
         )
+
+    def is_dirty(self) -> bool:
+        return self.sequence != self._build_sequence(self.source_path)
 
     def save_changes(self) -> Path:
         sequence = self._build_sequence(self.source_path)

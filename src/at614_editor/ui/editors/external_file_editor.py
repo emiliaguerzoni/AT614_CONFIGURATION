@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QLabel, QPlainTextEdit, QVBoxLayout, QWidget
 
 from at614_editor.ui.components.file_widget import FileWidget
@@ -28,6 +29,7 @@ def _detect_encoding(raw: bytes) -> str:
 
 
 class ExternalFileEditor(QWidget):
+    state_changed = Signal()
     editor_name = "ExternalFileEditor"
 
     def __init__(
@@ -40,6 +42,7 @@ class ExternalFileEditor(QWidget):
         self.display_label = display_label
         self.source_path = source_path
         self._encoding = "utf-8"
+        self._original_text = ""
 
         file_exists = source_path is not None and source_path.exists() and source_path.is_file()
         self.supports_save = file_exists
@@ -65,17 +68,24 @@ class ExternalFileEditor(QWidget):
         self.preview_editor.setReadOnly(not file_exists)
         self.preview_editor.setToolTip("Modifica il contenuto del file. Le modifiche verranno salvate al salvataggio del progetto.")
         if file_exists:
-            self.preview_editor.setPlainText(self._load_file_text(source_path))
+            self._original_text = self._load_file_text(source_path)
+            self.preview_editor.setPlainText(self._original_text)
         else:
             self.preview_editor.setPlaceholderText(
                 "Anteprima non disponibile: la risorsa non è presente nel progetto."
             )
+        self.preview_editor.textChanged.connect(self.state_changed.emit)
         layout.addWidget(self.preview_editor)
 
     def _load_file_text(self, source_path: Path) -> str:
         raw = source_path.read_bytes()
         self._encoding = _detect_encoding(raw)
         return raw.decode(self._encoding)
+
+    def is_dirty(self) -> bool:
+        if not self.supports_save:
+            return False
+        return self.preview_editor.toPlainText() != self._original_text
 
     def save_changes(self) -> Path | None:
         if not self.supports_save or self.source_path is None:

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from at614_editor.domain.models import DistributoreConfig, DistributoreLine
+
+logger = logging.getLogger(__name__)
 
 SECTION_PREFIX = "sezione"
 CE16_PREFIX = "calibrazioneCE16_"
@@ -33,14 +36,21 @@ def _parse_index(key: str, prefix: str) -> int | None:
 
 
 def parse(path: Path) -> DistributoreConfig:
-    raw = path.read_bytes()
-    encoding = _detect_encoding(raw)
-    text = raw.decode(encoding)
-    line_ending = _detect_line_ending(text)
-    lines: list[DistributoreLine] = []
-    sezioni: dict[int, str] = {}
-    calibrazioni_ce16: dict[int, str] = {}
-    extras: dict[str, str] = {}
+    try:
+        logger.info(f"Parsing distributore: {path}")
+        raw = path.read_bytes()
+        encoding = _detect_encoding(raw)
+        logger.debug(f"Encoding rilevato: {encoding}")
+        text = raw.decode(encoding)
+        line_ending = _detect_line_ending(text)
+        logger.debug(f"Line ending rilevato: {repr(line_ending)}")
+        lines: list[DistributoreLine] = []
+        sezioni: dict[int, str] = {}
+        calibrazioni_ce16: dict[int, str] = {}
+        extras: dict[str, str] = {}
+    except Exception as e:
+        logger.exception(f"Errore durante il parsing di {path}: {e}")
+        raise
 
     for raw_line in text.splitlines():
         stripped = raw_line.strip()

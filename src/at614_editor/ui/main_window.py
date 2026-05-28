@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -13,19 +14,25 @@ from at614_editor.ui.dialogs.clone_program_dialog import CloneProgramDialog
 from at614_editor.ui.editor_shell import EditorShell
 from at614_editor.ui.workspace_home import WorkspaceHome
 
+logger = logging.getLogger(__name__)
+
 
 def discover_project_root(start_path: Path) -> Path | None:
+    logger.debug(f"Ricerca root del progetto a partire da: {start_path}")
     # 1) Cerca un settings.ini AT614 nella directory corrente e nei suoi genitori
     from at614_editor.domain.settings_ini import discover_root_from_settings_ini  # noqa: PLC0415
 
     for candidate_dir in [start_path, *start_path.parents]:
         ini_path = candidate_dir / "settings.ini"
         if ini_path.is_file():
+            logger.debug(f"Trovato settings.ini in: {ini_path}")
             root = discover_root_from_settings_ini(ini_path)
             if root is not None:
+                logger.info(f"Root del progetto identificata da settings.ini: {root}")
                 return root
 
     # 2) Fallback: cerca DISTRIBUTORE + TEST nella directory corrente e nelle sue figlie
+    logger.debug("Fallback: ricerca di DISTRIBUTORE + TEST")
     candidates = [start_path]
     try:
         candidates.extend(item for item in start_path.iterdir() if item.is_dir())
@@ -34,15 +41,26 @@ def discover_project_root(start_path: Path) -> Path | None:
 
     for candidate in candidates:
         if (candidate / "DISTRIBUTORE").exists() and (candidate / "TEST").exists():
+            logger.info(f"Root del progetto trovata in: {candidate}")
             return candidate
+    logger.warning(f"Root del progetto non trovato a partire da: {start_path}")
     return None
 
 
 class MainWindow(QMainWindow):
     def __init__(self, project_root: Path | None = None, parent=None) -> None:
         super().__init__(parent)
+        logger.info(f"MainWindow: inizializzazione con project_root={project_root}")
         self.project_root = project_root
-        self.project = load_project(project_root) if project_root is not None else None
+        try:
+            self.project = load_project(project_root) if project_root is not None else None
+            if self.project:
+                logger.info(f"MainWindow: progetto caricato con {len(self.project.distributori)} distribuitori")
+            else:
+                logger.warning("MainWindow: nessun progetto caricato")
+        except Exception as e:
+            logger.exception(f"MainWindow: errore durante il caricamento del progetto: {e}")
+            self.project = None
 
         self.setWindowTitle("AT614 Configuration Editor")
         self.resize(1480, 920)
@@ -60,6 +78,12 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._apply_light_styles()
         self.show_home()
+
+    def closeEvent(self, event) -> None:
+        if not self.editor_shell._prompt_save_if_dirty():
+            event.ignore()
+        else:
+            event.accept()
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Navigazione")

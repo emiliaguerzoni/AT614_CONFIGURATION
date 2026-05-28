@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtWidgets import QAbstractItemView, QGridLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QAbstractItemView, QGridLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QFileDialog
 
 from at614_editor.domain.models import DistributoreConfig
 from at614_editor.domain.parsers.distributore import serialize as serialize_distributore
@@ -14,8 +16,11 @@ from at614_editor.ui.editors.resource_actions import build_duplicate_path
 from at614_editor.ui.file_picker import FilePicker
 from at614_editor.ui.tooltip_manager import get_common_tooltip
 
+logger = logging.getLogger(__name__)
+
 
 class DistEditor(QWidget):
+    state_changed = Signal()
     editor_name = "DistEditor"
     supports_save = True
     supports_duplicate = True
@@ -29,11 +34,17 @@ class DistEditor(QWidget):
         parent=None,
     ) -> None:
         super().__init__(parent)
+        logger.info(f"DistEditor: inizializzazione per {source_path.name}")
         self.project = project
         self.source_path = source_path
         self.open_resource = open_resource
         self.show_usages = show_usages
-        self.config = project.distributori[source_path]
+        try:
+            self.config = project.distributori[source_path]
+            logger.debug(f"DistEditor: configurazione caricata con successo")
+        except Exception as e:
+            logger.exception(f"DistEditor: errore durante il caricamento della configurazione: {e}")
+            raise
         self.section_cards: list[ResourceCard] = []
         self.ce16_widgets: list[FileWidget] = []
         self.file_picker = FilePicker(project)
@@ -61,6 +72,19 @@ class DistEditor(QWidget):
                 state_text="ok" if section_code else "opz.",
                 editable=True,
             )
+            def make_section_picker_callback(card: ResourceCard, sec_idx: int) -> None:
+                def picker_callback() -> None:
+                    selected_path = self.file_picker.pick_file(
+                        parent=self,
+                        title="Seleziona sequenza test",
+                        resource_type="sequenze_test",
+                    )
+                    if selected_path:
+                        # Estrai il nome del file senza estensione
+                        file_stem = Path(selected_path).stem
+                        card.file_label.setText(file_stem)
+                return picker_callback
+            card.select_button.clicked.connect(make_section_picker_callback(card, section_index))
             card.open_button.clicked.connect(
                 lambda _checked=False, current_card=card: self._open_reference(current_card.file_name_text())
             )
@@ -70,6 +94,7 @@ class DistEditor(QWidget):
                 )
             )
             card.file_label.textChanged.connect(self._refresh_reference_actions)
+            card.file_label.textChanged.connect(lambda _text: self.state_changed.emit())
             self.section_cards.append(card)
             sections_layout.addWidget(card, offset // 2, offset % 2)
         layout.addWidget(sections_grid)
@@ -110,6 +135,7 @@ class DistEditor(QWidget):
                 )
             )
             file_widget.name_label.textChanged.connect(self._refresh_reference_actions)
+            file_widget.name_label.textChanged.connect(lambda _text: self.state_changed.emit())
             self.ce16_widgets.append(file_widget)
             ce16_layout.addWidget(file_widget, offset // 2, offset % 2)
         layout.addWidget(ce16_grid)
@@ -124,6 +150,7 @@ class DistEditor(QWidget):
         self.parameters_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.parameters_table.setEditTriggers(QTableWidget.EditTrigger.AllEditTriggers)
         self.parameters_table.setToolTip(get_common_tooltip("parametro_aggiuntivo"))
+        self.parameters_table.cellChanged.connect(lambda _row, _col: self.state_changed.emit())
 
         if self.config.extras:
             for row_index, (key, value) in enumerate(sorted(self.config.extras.items())):
@@ -245,6 +272,9 @@ class DistEditor(QWidget):
             line_ending=self.config.line_ending,
             endswith_newline=self.config.endswith_newline,
         )
+
+    def is_dirty(self) -> bool:
+        return self.config != self._collect_model(self.source_path)
 
     def save_changes(self) -> Path:
         model = self._collect_model(self.source_path)

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Callable
 
 from PySide6.QtWidgets import QFileDialog, QWidget
 
 from at614_editor.domain.project import AT614Project
+
+logger = logging.getLogger(__name__)
 
 
 class FilePicker:
@@ -38,22 +41,32 @@ class FilePicker:
         Returns:
             Percorso relativo al file selezionato, oppure None se annullato
         """
-        # Determina il filtro e la cartella di partenza in base al tipo di risorsa
-        file_filter, start_dir = self._get_filter_and_dir(resource_type)
+        try:
+            logger.debug(f"FilePicker: apertura dialog per tipo '{resource_type}'")
+            # Determina il filtro e la cartella di partenza in base al tipo di risorsa
+            file_filter, start_dir = self._get_filter_and_dir(resource_type)
+            logger.debug(f"FilePicker: start_dir={start_dir}, filter={file_filter}")
 
-        # Apri il file dialog
-        file_path, _ = QFileDialog.getOpenFileName(
-            parent,
-            title,
-            str(start_dir),
-            file_filter,
-        )
+            # Apri il file dialog
+            file_path, _ = QFileDialog.getOpenFileName(
+                parent,
+                title,
+                str(start_dir),
+                file_filter,
+            )
 
-        if not file_path:
+            if not file_path:
+                logger.debug("FilePicker: selezione annullata dall'utente")
+                return None
+
+            logger.info(f"FilePicker: file selezionato: {file_path}")
+            # Converti il percorso assoluto in percorso relativo alla project root
+            result = self._to_relative_path(Path(file_path))
+            logger.debug(f"FilePicker: percorso relativo: {result}")
+            return result
+        except Exception as e:
+            logger.exception(f"FilePicker: errore durante la selezione del file: {e}")
             return None
-
-        # Converti il percorso assoluto in percorso relativo alla project root
-        return self._to_relative_path(Path(file_path))
 
     def _get_filter_and_dir(self, resource_type: str | None) -> tuple[str, Path]:
         """Determina il filtro file e la cartella di partenza in base al tipo di risorsa.
@@ -71,6 +84,7 @@ class FilePicker:
             "limite_inf": self.root_path / "CURVE_LIMITE",
             "limite_sup": self.root_path / "CURVE_LIMITE",
             "rampa_xy": self.root_path / "RAMPE_XY",
+            "sequenze_test": self.root_path / "TEST",
             "ce16": self.root_path / "CONFIGURAZIONE",
             "mms2218": self.root_path / "CONFIGURAZIONE",
             "parametri": self.root_path / "CONFIGURAZIONE",
@@ -84,6 +98,7 @@ class FilePicker:
             "limite_inf": "File CSV (*.csv);;Tutti i file (*.*)",
             "limite_sup": "File CSV (*.csv);;Tutti i file (*.*)",
             "rampa_xy": "File CSV (*.csv);;Tutti i file (*.*)",
+            "sequenze_test": "File CSV (*.csv);;Tutti i file (*.*)",
             "ce16": "File CSV (*.csv);;Tutti i file (*.*)",
             "mms2218": "File CSV (*.csv);;Tutti i file (*.*)",
             "parametri": "File CFG (*.cfg);;Tutti i file (*.*)",

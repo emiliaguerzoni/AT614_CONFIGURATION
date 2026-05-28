@@ -182,6 +182,76 @@ FolderConfigurazioneModuli=C:\Path\To\CONFIGURAZIONE
 
 Ogni campo editabile ha un **tooltip** che descrive il significato e come compilarlo. I tooltip sono generati automaticamente da schemi YAML e descrizioni predefinite.
 
+## 🔍 Debug e Logging
+
+L'applicazione registra automaticamente **tutte le operazioni importanti** in tempo reale nel terminale. Questo è molto utile per diagnosticare i problemi.
+
+### Visualizzare i Log nel Terminale
+
+Quando avvii l'applicazione, vedrai i log nel terminale:
+
+```
+08:15:23 | at614_editor | INFO     | ================================================================================
+08:15:23 | at614_editor | INFO     | AT614 Configuration Editor - Avvio applicazione
+08:15:23 | at614_editor | INFO     | ================================================================================
+08:15:24 | at614_editor.ui.editors.dist_editor | INFO     | DistEditor: inizializzazione per distributore_001.csv
+08:15:24 | at614_editor.ui.editors.dist_editor | DEBUG    | DistEditor: configurazione caricata con successo
+08:15:25 | at614_editor.ui.file_picker | DEBUG    | FilePicker: apertura dialog per tipo 'sequenze_test'
+08:15:26 | at614_editor.ui.file_picker | INFO     | FilePicker: file selezionato: C:\path\to\TEST\test_001.csv
+```
+
+### Dove Trovare i Log Completi
+
+I log vengono registrati anche in un file permanente:
+
+**Windows:**
+```
+C:\Users\<tuonome>\.at614-editor\logs\at614-editor.log
+```
+
+**macOS/Linux:**
+```
+~/.at614-editor/logs/at614-editor.log
+```
+
+### Informazioni Registrate
+
+Ogni log contiene:
+- **Timestamp**: Ora dell'evento (HH:MM:SS)
+- **Modulo**: Quale parte del codice ha generato il log
+- **Livello**: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- **Messaggio**: Descrizione dell'evento
+
+### Livelli di Log
+
+| Livello | Significato | Quando Compare |
+|---------|-------------|-----------------|
+| **DEBUG** | Informazioni dettagliate per sviluppatori | Sempre durante le operazioni |
+| **INFO** | Informazioni generali importanti | Avvio app, caricamento file, salvataggio |
+| **WARNING** | Avvisi di situazioni insolite | Percorsi mancanti, valori anomali |
+| **ERROR** | Errori che impediscono un'operazione | File corrotto, parsing fallito |
+| **CRITICAL** | Errori critici dell'applicazione | Crash imminente |
+
+### Interpretare i Log in Caso di Crash
+
+Se l'applicazione va in crash, guarda i log recenti nel terminale:
+
+1. **Cerca EXCEPTION o ERROR** nei log - lì troverai il motivo del crash
+2. **Nota il timestamp** - aiuta a identificare quale azione ha causato il problema
+3. **Copia il messaggio di errore intero** - utile per segnalare il bug
+
+Esempio di log di errore:
+```
+08:20:15 | at614_editor.domain.parsers.distributore | ERROR | Exception in parse_distributore
+Traceback (most recent call last):
+  File ".../parsers/distributore.py", line 36, in parse
+    ...
+```
+
+### Aumentare il Verbosity (Avanzato)
+
+Se hai bisogno di più dettagli, puoi modificare il file `src/at614_editor/__main__.py` e cercare `level=logging.DEBUG` per cambiarla in `level=logging.DEBUG`. I log di DEBUG contengono dettagli delle operazioni file picker, parsing, e serializzazione.
+
 ## 🐛 Segnalazione Bug
 
 Apri una [Issue su GitHub](https://github.com/emiliaguerzoni/AT614_CONFIGURATION/issues) con descrizione del problema e passi per riprodurlo.

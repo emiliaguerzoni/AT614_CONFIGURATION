@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from at614_editor.domain.models import Ce16Resource, Mms2218Resource, PointSeriesResource, PointSeriesRow
@@ -12,6 +13,7 @@ from at614_editor.ui.tooltip_manager import get_common_tooltip
 
 
 class _PointSeriesEditorBase(QWidget):
+    state_changed = Signal()
     editor_name = "PointSeriesEditor"
     supports_save = True
     supports_duplicate = False
@@ -87,6 +89,7 @@ class _PointSeriesEditorBase(QWidget):
                 row.append(item.text() if item is not None else "")
             row_values.append(row)
         self.chart_stage.plot_series(row_values, self.header_fields)
+        self.state_changed.emit()
 
     def _build_point_series_resource(self, prototype: PointSeriesResource) -> PointSeriesResource:
         rows: list[PointSeriesRow] = []
@@ -125,6 +128,11 @@ class _PointSeriesEditorBase(QWidget):
 
     def _serialize_resource(self, resource) -> bytes:
         raise NotImplementedError()
+
+    def is_dirty(self) -> bool:
+        if hasattr(self, "resource"):
+            return self.resource != self._build_serializable_resource(self.source_path)
+        return False
 
     def save_changes(self) -> Path:
         resource = self._build_serializable_resource(self.source_path)

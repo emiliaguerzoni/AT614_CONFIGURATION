@@ -57,6 +57,7 @@ class EditorShell(QWidget):
         self.history: list[ResourceTreeSelection] = []
         self.history_index: int = -1
         self._is_navigating = False
+        self._last_selection: ResourceTreeSelection | None = None
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -96,14 +97,18 @@ class EditorShell(QWidget):
         self.new_button = QPushButton("Nuovo")
         self.duplicate_button = QPushButton("Duplica")
         self.rename_button = QPushButton("Rinomina")
+        self.delete_button = QPushButton("Elimina")
+        self.delete_button.setStyleSheet("color: #B42318;")
         self.save_button = QPushButton("Salva")
         self.new_button.clicked.connect(self.create_new_in_current_category)
         self.duplicate_button.clicked.connect(self.duplicate_current_resource)
         self.rename_button.clicked.connect(self.rename_current_resource)
+        self.delete_button.clicked.connect(self.delete_current_resource)
         self.save_button.clicked.connect(self.save_current_resource)
         header_layout.addWidget(self.new_button)
         header_layout.addWidget(self.duplicate_button)
         header_layout.addWidget(self.rename_button)
+        header_layout.addWidget(self.delete_button)
         header_layout.addWidget(self.save_button)
         center_layout.addLayout(header_layout)
 
@@ -141,6 +146,7 @@ class EditorShell(QWidget):
 
     def show_empty_state(self) -> None:
         selection = ResourceTreeSelection("distributori", "Distributori", "Dashboard", None)
+        self._last_selection = selection
         self._set_title(selection, "Seleziona una risorsa per aprire la shell di editing.")
         self._replace_content([QLabel("La milestone M2 espone layout 3 colonne, albero categorie e componenti base riusabili.")])
         self._current_reference_context = []
@@ -151,6 +157,22 @@ class EditorShell(QWidget):
     def show_selection(self, selection: ResourceTreeSelection) -> None:
         if selection is None:
             return
+
+        # Ignora se è la stessa selezione
+        if selection == self._last_selection:
+            return
+
+        if not self._prompt_save_if_dirty():
+            # Ripristina selezione nell'albero in modo silenzioso
+            self._is_navigating = True
+            try:
+                if self._last_selection:
+                    self.resource_tree.activate_selection(self._last_selection)
+            finally:
+                self._is_navigating = False
+            return
+
+        self._last_selection = selection
 
         if not self._is_navigating:
             self.history = self.history[:self.history_index + 1]
@@ -223,6 +245,9 @@ class EditorShell(QWidget):
         self.content_widgets = widgets[:]
         self.current_editor = widgets[0] if widgets else None
 
+        if self.current_editor and hasattr(self.current_editor, "state_changed"):
+            self.current_editor.state_changed.connect(self._update_titlebar_actions)
+
         for widget in widgets:
             self.content_layout.addWidget(widget)
         self.content_layout.addStretch(1)
@@ -235,13 +260,21 @@ class EditorShell(QWidget):
 
     def _update_titlebar_actions(self) -> None:
         supports_save = bool(self.current_editor) and getattr(self.current_editor, "supports_save", False)
+        is_dirty = bool(self.current_editor) and getattr(self.current_editor, "is_dirty", lambda: False)()
         supports_duplicate = bool(self.current_editor) and getattr(self.current_editor, "supports_duplicate", False)
         has_source = self._current_source_path() is not None
-        self.save_button.setEnabled(supports_save)
+
+        self.save_button.setEnabled(supports_save and is_dirty)
         self.duplicate_button.setEnabled(supports_duplicate)
         self.rename_button.setEnabled(has_source)
+        self.delete_button.setEnabled(has_source)
         self.right_panel.rinomina_button.setEnabled(has_source)
         self.right_panel.elimina_button.setEnabled(has_source)
+
+        title = self.current_title().removesuffix(" *")
+        if is_dirty:
+            title += " *"
+        self.title_label.setText(title)
 
         new_enabled = (
             self.project_root is not None
@@ -279,10 +312,31 @@ class EditorShell(QWidget):
             return None
 
         saved_path = save_changes()
-        self._reload_project(saved_path)
+        if getattr(self.current_editor, "is_dirty", lambda: False)():
+            self._reload_project(saved_path)
+            # Reimpostare lo stato is_dirty a False se l'editor gestisce un modello interno,
+            # ma il reload dell'albero e della UI ri-crea l'editor da zero, quindi va bene.
         return saved_path
 
+    def _prompt_save_if_dirty(self) -> bool:
+        if not self.current_editor or not getattr(self.current_editor, "is_dirty", lambda: False)():
+            return True
+
+        reply = QMessageBox.warning(
+            self,
+            "Modifiche non salvate",
+            "Il file corrente contiene modifiche non salvate.\nVuoi salvarle prima di continuare?",
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Save,
+        )
+
+        if reply == QMessageBox.StandardButton.Save:
+            return self.save_current_resource() is not None
+        return reply == QMessageBox.StandardButton.Discard
+
     def create_new_in_current_category(self) -> Path | None:
+        if not self._prompt_save_if_dirty():
+            return None
         if self.project_root is None or self._current_category_key is None:
             return None
         if not supports_new_resource(self._current_category_key):
