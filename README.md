@@ -1,90 +1,209 @@
-# AT614 Configuration Editor
+﻿# AT614 Configuration Editor
 
-Bootstrap project for the AT614 Configuration Editor.
+**Editor Python GUI per la configurazione dei programmi di collaudo del banco AT614**
 
-Current scope:
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)](https://www.python.org/)
+[![PySide6](https://img.shields.io/badge/PySide6-6.11%2B-green?logo=qt)](https://wiki.qt.io/PySide6)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-- project scaffold;
-- Python package entry point;
-- first fixture files based on real project data;
-- core domain parsers and reference index;
-- first Qt shell UI with reusable structural components;
-- BAS schema extractor producing `schemas/auto/*.yaml`;
-- smoke and domain tests.
+## 📋 Descrizione
 
-The implementation roadmap is described in:
+AT614 Configuration Editor è un'applicazione desktop Python che semplifica la creazione e la modifica dei programmi di collaudo per il banco EOL AT614. Consente a tecnici di collaudo e ingegneri di test di configurare procedure complesse senza necessità di conoscenza approfondita di VB6 o delle strutture interne dei file.
 
-- `PIANO_SVILUPPO.md`
-- `BACKLOG_IMPLEMENTAZIONE.md`
-- `LAYOUT_UX.md`
+L'applicazione è stata progettata per **utenti non programmatori** con conoscenza del dominio tecnico, offrendo un'interfaccia intuitiva e guidata.
 
-## Running the BAS schema extractor
+## ✨ Caratteristiche Principali
 
-The extractor reads `Module_TEST_*.bas` files and emits one YAML per test
-handler with parameter index, name, raw enum identifier and inline comment.
+### 🎯 Editor Specializzati
+- **Distributore**: Gestione sezioni, calibrazioni CE16 e parametri
+- **Sequenze Test**: Editor visuale con tabella test e pannello parametri dinamico
+- **Curve Comando**: Editor grafico con visualizzazione punti e valori
+- **Curve Limite**: Gestione limiti superiore/inferiore con confronto banda
+- **Rampe XY**: Editor tempo-tensione con punti trascinabili
+- **Calibrazioni**: Supporto CE16 e MMS2218
+- **File Esterni**: Editor assistito per file non strutturati
 
-```powershell
-$env:PYTHONPATH = "src"
-python -m at614_editor.domain.bas_extractor .\BAS .\schemas\auto
+### 💡 Funzionalità UX
+- **Tooltip Intelligenti**: Descrizioni contestuali per ogni campo editabile, estratte dagli schemi YAML
+- **File Picker**: Dialog comune per la selezione dei file con filtri specifici per tipo di risorsa
+- **Percorsi Relativi**: Gestione automatica dei percorsi relativi alla project root
+- **Validazione**: Controlli di errore e warning in tempo reale
+- **Grafico Interattivo**: Visualizzazione dinamica delle curve con aggiornamento in tempo reale
+
+### 🔗 Gestione Risorse
+- **Albero Risorse**: Organizzazione per tipologia funzionale (distribuitori, test, curve, etc.)
+- **Tracciamento Dipendenze**: Monitoraggio di chi usa quale risorsa
+- **Operazioni Sicure**: Conferme prima di azioni distruttive con impatto sui riferimenti
+- **Duplicazione Intelligente**: Gestione automatica delle risorse collegate
+
+### 📁 Supporto Cartelle
+- Supporto completo per tutte le cartelle definite in `settings.ini`
+- Mapping automatico: FolderConfigurazioneTest, FolderFileCurveComando, FolderFileCurveLimite, FolderRampeXY, FolderConfigurazioneModuli, etc.
+- Risoluzione automatica dei percorsi
+
+## 🚀 Installazione Veloce
+
+### Prerequisiti
+- Python 3.11 o superiore
+- pip
+
+### Step 1: Clonare il repository
+```bash
+git clone https://github.com/emiliaguerzoni/AT614_CONFIGURATION.git
+cd AT614_CONFIGURATION
 ```
 
-Modules without a `Private Enum eTestParameter` block (e.g. the dispatcher
-`Module_TEST_MANAGER.bas`) are skipped. Files in `schemas/auto/` are
-regenerated each run; manual refinements belong in `schemas/overrides/`.
+### Step 2: Installare le dipendenze
+```bash
+pip install -e .
+```
 
-## File format inventory
+Opzionalmente, per sviluppo con test e documentazione:
+```bash
+pip install -e ".[dev]"
+```
 
-| Path pattern | Parser | Editor (shell) | CRUD scope |
-|---|---|---|---|
-| `DISTRIBUTORE/*.cfg` | `domain.parsers.distributore` | `DistEditor` | crea, apri, duplica, elimina |
-| `TEST/*.csv` | `domain.parsers.test_csv` | `SeqEditor` | crea, apri, duplica, elimina |
-| `CURVE_COMANDO/*.csv` | `domain.parsers.point_series` | `CurveEditor` | crea, apri, duplica, elimina |
-| `CURVE_LIMITE/*.csv` | `domain.parsers.point_series` | `LimitEditor` | crea, apri, duplica, elimina |
-| `RAMPE_XY/*.csv` | `domain.parsers.point_series` | `RampEditor` | crea, apri, duplica, elimina |
-| `SETTAGGI PROGRAMMA/<profilo>/CE16/*.cfg` | `domain.parsers.ce16` | `Ce16Editor` | crea, apri, duplica (nuovo slot `CE16_<next>`) |
-| `SETTAGGI PROGRAMMA/<profilo>/MMS2218/*.csv` | `domain.parsers.mms2218` | `MmsEditor` | crea, apri, duplica (nuovo canale `ADC<next>`) |
-| `*.txt` esterni referenziati dai test | lettura testo, encoding cp1252/utf-8 | `ExternalFileEditor` | crea, apri, salva (modalità testo assistito), duplica |
-| `GRAPH/**`, `RAMPE_XY_LAST/**`, archivi esterni | `domain.output_archive` (metadati lazy + cache) | `OutputViewer` (sola lettura, filtro stringa/data, scelta assi X/Y) | nessun authoring; azioni `Esporta`, `Confronta`, `Stampa`, `Apri cartella` |
-| `BAS/Module_TEST_*.bas` | `domain.bas_extractor` | — | sola sorgente: produce `schemas/auto/*.yaml` |
+### Step 3: Lanciare l'applicazione
+```bash
+at614-editor
+```
 
-## Duplica programma (M5.7)
+## 📖 Utilizzo
 
-Dalla dashboard il pulsante `Duplica programma` apre un wizard che:
+### Flusso Principale
 
-- raccoglie il distributore sorgente e tutte le risorse referenziate da
-  sezioni e righe TEST (curve, limiti, rampe, file esterni);
-- per ogni risorsa permette di scegliere fra **Duplica** (crea una copia con
-  nome derivato) o **Riusa** (mantiene il riferimento all'originale);
-- mostra un riepilogo `[nuovo]` / `[duplicato da …]` / `[riusato]` prima della
-  conferma;
-- al click su `Duplica`, esegue il piano: crea i file fisici dei duplicati,
-  riscrive le sequenze TEST aggiornando i riferimenti interni, salva il nuovo
-  distributore con le sezioni puntate ai nuovi TEST e atterra nell'editor del
-  nuovo programma.
+#### 1. Creare un nuovo programma
+1. Clicca "Nuovo programma" dalla dashboard
+2. Compila il wizard:
+   - Codice nuovo distributore
+   - Scegli template o crea vuoto
+   - Numero sezioni attive
+   - Configurazione opzionale CE16
+3. Il sistema crea il distributore e le risorse minime
+4. Entra nell'editor distributore per configurare i dettagli
 
-Convenzione di naming: lo stem del file sorgente viene affiancato dal nuovo
-codice distributore (`<stem>_<new_code><suffix>`); se lo stem coincide con il
-codice sorgente, il file destinazione usa solo il nuovo codice
-(`15.1001.356_C.csv` → `15.1001.999.csv`).
+#### 2. Modificare una sequenza test
+1. Seleziona un distributore dall'albero risorse
+2. Clicca "Apri" sulla sezione desiderata
+3. Visualizza la tabella dei test
+4. Seleziona una riga per modificare i parametri
+5. Usa il file picker per selezionare risorse collegate
+6. I tooltip guidano il significato di ogni campo
 
-## Viewer output banco (M6)
+#### 3. Selezionare file con File Picker
+1. Clicca il pulsante "Seleziona" in qualsiasi campo file
+2. Si apre un dialog con:
+   - Filtri specifici per tipo di risorsa
+   - Directory di partenza appropriata
+   - Supporto alle cartelle da settings.ini
+3. Seleziona il file
+4. Il percorso viene automaticamente salvato come relativo
 
-L'OutputViewer è la vista per consultare archivi di output del banco. Si apre
-dalla categoria *Output banco* nell'albero risorse. Caratteristiche:
+#### 4. Duplicare un programma
+1. Clicca "Duplica programma"
+2. Seleziona distributore sorgente
+3. Indica nuovo codice
+4. Per ogni risorsa: decidi se duplicare o riusare
+5. Visualizza anteprima dei file che verranno creati
+6. Conferma e il nuovo programma è pronto
 
-- **Archivio configurabile**: di default usa la cartella `GRAPH/` del progetto
-  se esiste; il pulsante `Configura archivio output` permette di scegliere
-  qualunque cartella esterna.
-- **Indice lazy con cache persistente**: la scansione iniziale legge solo i
-  metadati dei `.csv` (nome, cartella, data creazione, data modifica,
-  dimensione), mai il contenuto; l'indice è cachato in `.at614_output_index.json`
-  nella root dell'archivio e ri-scansionato solo se rileva file nuovi o
-  modificati.
-- **Filtri**: stringa libera (nome o cartella) e range di date di creazione.
-- **Apertura on-demand**: il CSV viene letto solo quando l'utente seleziona
-  una riga; encoding auto-detect tra utf-8 e cp1252.
-- **Scelta assi**: dropdown asse X + lista multi-select assi Y popolati dalle
-  colonne del CSV selezionato.
-- **Sola lettura**: `ReadOnlyBanner` permanente in cima; le uniche azioni
-  permesse sono `Esporta`, `Confronta`, `Stampa`, `Apri cartella`. Nessun
-  pulsante `Salva`/`Nuovo`/`Modifica`.
+## 🏗️ Struttura del Progetto
+
+```
+AT614_CONFIGURATION/
+├── src/at614_editor/
+│   ├── domain/                 # Logica applicativa
+│   │   ├── models.py          # Modelli dati
+│   │   ├── project.py         # Gestione progetto
+│   │   ├── parsers/           # Parser per CSV, YAML, INI
+│   │   ├── settings_ini.py    # Parser settings.ini
+│   │   ├── refactor.py        # Operazioni di refactor
+│   │   ├── program_clone.py   # Logica clonazione
+│   │   └── test_schema.py     # Schemi parametri test
+│   ├── ui/                     # Interfaccia utente
+│   │   ├── main_window.py     # Finestra principale
+│   │   ├── editors/           # Editor specializzati
+│   │   ├── components/        # Componenti riutilizzabili
+│   │   ├── file_picker.py     # File picker con dialog
+│   │   └── tooltip_manager.py # Gestione tooltip
+│   └── __main__.py            # Entry point
+├── schemas/                    # Schemi parametri test
+├── tests/                      # Test suite
+├── docs/                       # Documentazione
+├── pyproject.toml            # Configurazione progetto
+└── README.md                 # Questo file
+```
+
+## 🧑‍💻 Sviluppo
+
+### Configurazione ambiente di sviluppo
+
+```bash
+# Clonare il repository
+git clone https://github.com/emiliaguerzoni/AT614_CONFIGURATION.git
+cd AT614_CONFIGURATION
+
+# Installare in modalità sviluppo
+pip install -e ".[dev]"
+```
+
+### Eseguire i test
+```bash
+pytest
+```
+
+## 📊 Schema Dati
+
+### Distributore (DISTRIBUTORE/*.csv)
+- Sezioni test (5 colonne per i codici TEST)
+- Calibrazioni CE16 (5 slot opzionali)
+- Parametri aggiuntivi (coppia chiave-valore)
+
+### Sequenze Test (TEST/*.csv)
+- Nome test
+- ID test (determina tipo e parametri specifici)
+- Indice (numero o espressione i++/++i)
+- Parametri specifici
+
+## 🔧 Configurazione
+
+L'applicazione legge i percorsi delle cartelle da `settings.ini`:
+
+```ini
+FolderConfigurazioneBancoCollaudo=C:\Path\To\DISTRIBUTORE
+FolderConfigurazioneTest=C:\Path\To\TEST
+FolderFileCurveComando=C:\Path\To\CURVE_COMANDO
+FolderFileCurveLimite=C:\Path\To\CURVE_LIMITE
+FolderRampeXY=C:\Path\To\RAMPE_XY
+FolderConfigurazioneModuli=C:\Path\To\CONFIGURAZIONE
+```
+
+## 📝 Tooltip e Descrizioni
+
+Ogni campo editabile ha un **tooltip** che descrive il significato e come compilarlo. I tooltip sono generati automaticamente da schemi YAML e descrizioni predefinite.
+
+## 🐛 Segnalazione Bug
+
+Apri una [Issue su GitHub](https://github.com/emiliaguerzoni/AT614_CONFIGURATION/issues) con descrizione del problema e passi per riprodurlo.
+
+## 🎯 Roadmap
+
+- [ ] Integrazione con banco AT614 (lettura dati real-time)
+- [ ] Export configurazione in formati standard
+- [ ] Supporto multi-lingua
+- [ ] Dark mode
+- [ ] Plugin system per editor personalizzati
+
+## 📄 Licenza
+
+Questo progetto è distribuito sotto licenza MIT.
+
+## 👥 Contatti
+
+**Sviluppo:** Simone Pandini  
+**Email:** simone.pandini@gmail.com  
+**GitHub:** https://github.com/emiliaguerzoni/AT614_CONFIGURATION
+
+---
+
+**Versione:** 0.1.0 (Beta)
