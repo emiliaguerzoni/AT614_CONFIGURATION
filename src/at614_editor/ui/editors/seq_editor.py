@@ -8,8 +8,6 @@ from typing import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-
-logger = logging.getLogger(__name__)
     QAbstractItemView,
     QComboBox,
     QHeaderView,
@@ -24,6 +22,8 @@ logger = logging.getLogger(__name__)
     QVBoxLayout,
     QWidget,
 )
+
+logger = logging.getLogger(__name__)
 
 from at614_editor.domain.models import TestRow, TestSequence
 from at614_editor.domain.parsers.test_csv import serialize as serialize_test_csv
@@ -336,70 +336,85 @@ class SeqEditor(QWidget):
             return
 
         for descriptor in descriptors:
-            wrapper = QWidget()
-            wrapper_layout = QVBoxLayout(wrapper)
-            wrapper_layout.setContentsMargins(0, 0, 0, 0)
-            wrapper_layout.setSpacing(6)
+            logger.debug(f"SeqEditor: descriptor idx={descriptor.parameter_index} kind={descriptor.editor_kind!r}")
+            try:
+                wrapper = QWidget()
+                wrapper_layout = QVBoxLayout(wrapper)
+                wrapper_layout.setContentsMargins(0, 0, 0, 0)
+                wrapper_layout.setSpacing(6)
 
-            wrapper_layout.addWidget(QLabel(descriptor.label))
-            raw_value = row.parameters[descriptor.parameter_index - 1] if descriptor.parameter_index - 1 < len(row.parameters) else ""
+                logger.debug(f"SeqEditor: addWidget label={descriptor.label!r}")
+                wrapper_layout.addWidget(QLabel(descriptor.label))
+                raw_value = row.parameters[descriptor.parameter_index - 1] if descriptor.parameter_index - 1 < len(row.parameters) else ""
+                logger.debug(f"SeqEditor: raw_value={raw_value!r}")
 
-            if descriptor.editor_kind == "file_ref":
-                def make_picker_callback(
-                    resource_type: str | None,
-                    file_widget: FileWidget,
-                    label: str,
-                ) -> Callable[[], None]:
-                    def picker_callback() -> None:
-                        try:
-                            selected_path = self.file_picker.pick_file(
-                                parent=self,
-                                title=f"Seleziona {label.lower()}",
-                                resource_type=resource_type,
-                            )
-                            if selected_path:
-                                file_widget.name_label.setText(selected_path)
-                                self._handle_live_edit("")
-                        except Exception as e:
-                            logger.exception(f"SeqEditor: errore nel picker callback: {e}")
-                    return picker_callback
+                if descriptor.editor_kind == "file_ref":
+                    def make_picker_callback(
+                        resource_type: str | None,
+                        file_widget: FileWidget,
+                        label: str,
+                    ) -> Callable[[], None]:
+                        def picker_callback() -> None:
+                            try:
+                                selected_path = self.file_picker.pick_file(
+                                    parent=self,
+                                    title=f"Seleziona {label.lower()}",
+                                    resource_type=resource_type,
+                                )
+                                if selected_path:
+                                    file_widget.name_label.setText(selected_path)
+                                    self._handle_live_edit("")
+                            except Exception as e:
+                                logger.exception(f"SeqEditor: errore nel picker callback: {e}")
+                        return picker_callback
 
-                field_widget = FileWidget(
-                    self._icon_for_resource_type(descriptor.resource_type),
-                    editable=True,
-                )
-                field_widget.select_button.clicked.connect(
-                    make_picker_callback(descriptor.resource_type, field_widget, descriptor.label)
-                )
+                    logger.debug("SeqEditor: creazione FileWidget")
+                    field_widget = FileWidget(
+                        self._icon_for_resource_type(descriptor.resource_type),
+                        editable=True,
+                    )
+                    field_widget.select_button.clicked.connect(
+                        make_picker_callback(descriptor.resource_type, field_widget, descriptor.label)
+                    )
 
-                tooltip = get_tooltip_for_descriptor(descriptor, row.test_id)
-                if tooltip:
-                    field_widget.name_label.setToolTip(tooltip)
-                target_path = self.project.resolve_resource_path(raw_value)
-                field_widget.set_reference(raw_value, uses_count=self.project.get_usage_count(target_path))
-                field_widget.open_button.setEnabled(target_path is not None)
-                field_widget.uses_button.setEnabled(target_path is not None)
-                field_widget.name_label.textChanged.connect(
-                    lambda _value, current_widget=field_widget: self._refresh_file_widget_actions(current_widget)
-                )
-                field_widget.name_label.textChanged.connect(self._handle_live_edit)
-                field_widget.open_button.clicked.connect(
-                    lambda _checked=False, current_widget=field_widget: self._open_file_reference(current_widget)
-                )
-                field_widget.uses_button.clicked.connect(
-                    lambda _checked=False, current_widget=field_widget: self._show_file_usages(current_widget)
-                )
-                self.file_reference_widgets.append(field_widget)
-            else:
-                field_widget = QLineEdit(raw_value)
-                tooltip = get_tooltip_for_descriptor(descriptor, row.test_id)
-                if tooltip:
-                    field_widget.setToolTip(tooltip)
-                field_widget.textChanged.connect(self._handle_live_edit)
+                    logger.debug("SeqEditor: tooltip FileWidget")
+                    tooltip = get_tooltip_for_descriptor(descriptor, row.test_id)
+                    if tooltip:
+                        field_widget.name_label.setToolTip(tooltip)
+                    logger.debug(f"SeqEditor: resolve_resource_path({raw_value!r})")
+                    target_path = self.project.resolve_resource_path(raw_value)
+                    logger.debug(f"SeqEditor: set_reference target={target_path}")
+                    field_widget.set_reference(raw_value, uses_count=self.project.get_usage_count(target_path))
+                    field_widget.open_button.setEnabled(target_path is not None)
+                    field_widget.uses_button.setEnabled(target_path is not None)
+                    field_widget.name_label.textChanged.connect(
+                        lambda _value, current_widget=field_widget: self._refresh_file_widget_actions(current_widget)
+                    )
+                    field_widget.name_label.textChanged.connect(self._handle_live_edit)
+                    field_widget.open_button.clicked.connect(
+                        lambda _checked=False, current_widget=field_widget: self._open_file_reference(current_widget)
+                    )
+                    field_widget.uses_button.clicked.connect(
+                        lambda _checked=False, current_widget=field_widget: self._show_file_usages(current_widget)
+                    )
+                    self.file_reference_widgets.append(field_widget)
+                else:
+                    logger.debug(f"SeqEditor: creazione QLineEdit({raw_value!r})")
+                    field_widget = QLineEdit(raw_value)
+                    logger.debug("SeqEditor: tooltip QLineEdit")
+                    tooltip = get_tooltip_for_descriptor(descriptor, row.test_id)
+                    if tooltip:
+                        field_widget.setToolTip(tooltip)
+                    logger.debug("SeqEditor: connect textChanged")
+                    field_widget.textChanged.connect(self._handle_live_edit)
 
-            wrapper_layout.addWidget(field_widget)
-            self.parameter_layout.addWidget(wrapper)
-            self.parameter_bindings.append((descriptor, field_widget))
+                logger.debug("SeqEditor: addWidget to layouts")
+                wrapper_layout.addWidget(field_widget)
+                self.parameter_layout.addWidget(wrapper)
+                self.parameter_bindings.append((descriptor, field_widget))
+                logger.debug(f"SeqEditor: descriptor {descriptor.parameter_index} completato OK")
+            except Exception as e:
+                logger.exception(f"SeqEditor: ERRORE nel descriptor {descriptor.parameter_index}: {e}")
 
         self.parameter_layout.addStretch(1)
 

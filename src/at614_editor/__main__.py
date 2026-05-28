@@ -97,6 +97,18 @@ def setup_logging() -> None:
     # Cattura eccezioni Python non gestite
     sys.excepthook = _unhandled_exception_hook
 
+    # Reindirizza stderr al logger (cattura print di eccezioni PySide6)
+    class _StderrToLogger:
+        def write(self, message: str) -> None:
+            stripped = message.strip()
+            if stripped:
+                logging.getLogger("stderr").error(stripped)
+
+        def flush(self) -> None:
+            pass
+
+    sys.stderr = _StderrToLogger()  # type: ignore[assignment]
+
     # Cattura messaggi Qt (warning, critical, etc.)
     qInstallMessageHandler(_qt_message_handler)
 
