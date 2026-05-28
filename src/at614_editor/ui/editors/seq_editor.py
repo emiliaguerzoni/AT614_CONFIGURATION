@@ -221,11 +221,14 @@ class SeqEditor(QWidget):
 
         layout.addWidget(detail_frame)
 
+        logger.debug("SeqEditor: pre setCurrentCell")
         if self.working_rows:
             self.row_table.setCurrentCell(0, 0)
         else:
             self._publish_validation_state(RowValidationState("ok", ()))
+        logger.debug("SeqEditor: post setCurrentCell / pre _update_summary")
         self._update_summary()
+        logger.debug("SeqEditor: __init__ completato")
 
     def _populate_table(self) -> None:
         for row_index, row in enumerate(self.working_rows):
@@ -306,8 +309,11 @@ class SeqEditor(QWidget):
         except Exception as e:
             logger.exception(f"SeqEditor: errore durante il caricamento della riga {row_index}: {e}")
         finally:
+            logger.debug(f"SeqEditor: finally - _loading_row = False")
             self._loading_row = False
+        logger.debug("SeqEditor: pre _publish_current_validation")
         self._publish_current_validation()
+        logger.debug("SeqEditor: post _publish_current_validation")
 
     def _clear_parameter_details(self) -> None:
         while self.parameter_layout.count():
@@ -416,7 +422,9 @@ class SeqEditor(QWidget):
             except Exception as e:
                 logger.exception(f"SeqEditor: ERRORE nel descriptor {descriptor.parameter_index}: {e}")
 
+        logger.debug("SeqEditor: pre addStretch")
         self.parameter_layout.addStretch(1)
+        logger.debug("SeqEditor: post addStretch / fine _render_parameter_details")
 
     def _refresh_file_widget_actions(self, file_widget: FileWidget) -> None:
         target_path = self.project.resolve_resource_path(file_widget.reference_text())
@@ -557,20 +565,25 @@ class SeqEditor(QWidget):
             self._publish_validation_state(self.row_validations[row_index])
 
     def _publish_validation_state(self, validation: RowValidationState) -> None:
+        logger.debug(f"SeqEditor: _publish_validation_state badge={validation.badge!r} msgs={len(validation.messages)}")
         badge_styles = {
             "ok": "background: #ECFDF3; border: 1px solid #ABEFC6; color: #067647; border-radius: 10px; padding: 2px 8px;",
             "warning": "background: #FFFAEB; border: 1px solid #FEDF89; color: #B54708; border-radius: 10px; padding: 2px 8px;",
             "errore": "background: #FEF3F2; border: 1px solid #FECDCA; color: #B42318; border-radius: 10px; padding: 2px 8px;",
         }
+        logger.debug("SeqEditor: setText row_status_badge")
         self.row_status_badge.setText(validation.badge)
         self.row_status_badge.setStyleSheet(badge_styles.get(validation.badge, badge_styles["ok"]))
-
+        logger.debug("SeqEditor: update_validation callback")
         if self.update_validation is not None:
             self.update_validation(list(validation.messages), False)
+        logger.debug("SeqEditor: update_status callback")
         if self.update_status is not None:
             self.update_status(validation.badge)
+        logger.debug("SeqEditor: _publish_validation_state completata")
 
     def _publish_current_validation(self) -> None:
+        logger.debug(f"SeqEditor: _publish_current_validation row={self.current_row_index}")
         if self.current_row_index is None:
             self._publish_validation_state(RowValidationState("ok", ()))
             return
