@@ -1,0 +1,26 @@
+id: TEST_CICLICA_CAN
+extends: CICLICA_CAN
+display_name: Test ciclica CAN
+replace_parameters: true
+parameters:
+  - index: 1
+    label: Tempo ciclica
+    type: text
+  - index: 2
+    label: Tempo singolo ciclo
+    type: text
+  - index: 3
+    label: Source address
+    type: text
+  - index: 4
+    label: Riferimento neutro
+    type: text
+  - index: 5
+    label: Riferimento max retract
+    type: text
+  - index: 6
+    label: Riferimento max extend
+    type: text
+  - index: 7
+    label: Tolleranza
+    type: text

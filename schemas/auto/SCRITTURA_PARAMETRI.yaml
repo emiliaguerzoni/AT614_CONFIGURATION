@@ -1,0 +1,15 @@
+id: SCRITTURA_PARAMETRI
+module: Module_TEST_SCRITTURA_PARAMETRI.bas
+parameters:
+  - index: 1
+    name: NomeFile
+    raw_name: eNomeFile
+    type: string
+  - index: 2
+    name: Sincro
+    raw_name: eSincro
+    type: string
+  - index: 3
+    name: JumpSpegniModuli
+    raw_name: eJumpSpegniModuli
+    type: string

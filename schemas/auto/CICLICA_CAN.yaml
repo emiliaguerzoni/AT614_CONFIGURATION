@@ -1,0 +1,38 @@
+id: CICLICA_CAN
+module: Module_TEST_CICLICA_CAN.bas
+parameters:
+  - index: 1
+    name: TimerCiclica
+    raw_name: eTimerCiclica
+    description: Tempo totale della ciclica
+    type: string
+  - index: 2
+    name: TimerCiclicaSingoloCiclo
+    raw_name: eTimerCiclicaSingoloCiclo
+    description: "Tempo della singola forma d'onda della ciclica"
+    type: string
+  - index: 3
+    name: SourceAddress
+    raw_name: eSourceAddress
+    description: Source address del messaggio AVC da trasmettere
+    type: string
+  - index: 4
+    name: RiferimentoNeutro
+    raw_name: eRiferimentoNeutro
+    description: Riferimento del comando NEUTRO ( se minore a 32 è riferito al CE16 altrimenti al position del MLT )
+    type: string
+  - index: 5
+    name: RiferimentoMaxR
+    raw_name: eRiferimentoMaxR
+    description: Riferimento del comando MAX R ( se minore a 32 è riferito al CE16 altrimenti al position del MLT )
+    type: string
+  - index: 6
+    name: RiferimentoMaxE
+    raw_name: eRiferimentoMaxE
+    description: Riferimento del comando MAX E ( se minore a 32 è riferito al CE16 altrimenti al position del MLT )
+    type: string
+  - index: 7
+    name: Tolleranza
+    raw_name: eTolleranza
+    description: Valore della finestra di accettabilità da sommare e sottrarre al valore di riferimento per confermare la posizione del modulo
+    type: string

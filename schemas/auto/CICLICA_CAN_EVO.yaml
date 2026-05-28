@@ -1,0 +1,8 @@
+id: CICLICA_CAN_EVO
+module: Module_TEST_CICLICA_CAN_EVO.bas
+parameters:
+  - index: 1
+    name: NomeFile
+    raw_name: eNomeFile
+    description: Tempo totale della ciclica
+    type: string

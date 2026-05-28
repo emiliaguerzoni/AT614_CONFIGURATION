@@ -1,0 +1,13 @@
+id: SEQUENZA_PLC
+module: Module_TEST_SEQUENZA_PLC.bas
+parameters:
+  - index: 1
+    name: NomeFileIngresso
+    raw_name: NomeFileIngresso
+    description: Nome del file di ingresso
+    type: string
+  - index: 2
+    name: Bloccante
+    raw_name: Bloccante
+    description: Abilita la modalità bloccante o meno del test globale
+    type: string

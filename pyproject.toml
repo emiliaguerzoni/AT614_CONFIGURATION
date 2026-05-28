@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "at614-editor"
+version = "0.1.0"
+description = "Bootstrap project for the AT614 Configuration Editor"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["PySide6>=6.11"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "PyYAML>=6.0", "pyinstaller>=6.4.0"]
+
+[project.scripts]
+at614-editor = "at614_editor.__main__:main"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

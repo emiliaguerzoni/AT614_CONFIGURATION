@@ -1,0 +1,12 @@
+id: RISPOSTE_GRADINO
+display_name: Risposte gradino
+replace_parameters: true
+parameters:
+  - index: 1
+    label: Curva comando
+    type: file_ref
+    resource_type: curva_comando
+  - index: 2
+    label: Rampa XY
+    type: file_ref
+    resource_type: rampa_xy

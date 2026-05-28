@@ -1,0 +1,63 @@
+id: ACQUISIZIONE_POST
+module: Module_TEST_ACQUISIZIONE_POST.bas
+parameters:
+  - index: 1
+    name: ColonnaX
+    raw_name: eColonnaX
+    description: Tipo della Variabile indipendente di comando
+    type: string
+  - index: 2
+    name: ColonnaY
+    raw_name: eColonnaY
+    description: Variabile indipendente di comando
+    type: string
+  - index: 3
+    name: NomeFileIngresso
+    raw_name: NomeFileIngresso
+    description: "NomeFile.csv dell'ACQUISIZIONE XY"
+    type: string
+  - index: 4
+    name: NomeFileCWGraphSezione
+    raw_name: eNomeFileCWGraphSezione
+    description: Nome file Impostazioni GRAFICO CWGraph
+    type: string
+  - index: 5
+    name: NomeFileCurvaLimiteInferiore
+    raw_name: NomeFileCurvaLimiteInferiore
+    description: Nome file Curva LIMITE INFERIORE
+    type: string
+  - index: 6
+    name: NomeFileCurvaLimiteSuperiore
+    raw_name: NomeFileCurvaLimiteSuperiore
+    description: Nome file Curva LIMITE SUPERIORE
+    type: string
+  - index: 7
+    name: NomeFileCurvaLimiteInferiore_2
+    raw_name: NomeFileCurvaLimiteInferiore_2
+    description: Nome file Curva LIMITE INFERIORE
+    type: string
+  - index: 8
+    name: NomeFileCurvaLimiteSuperiore_2
+    raw_name: NomeFileCurvaLimiteSuperiore_2
+    description: Nome file Curva LIMITE SUPERIORE
+    type: string
+  - index: 9
+    name: NomeColonnaX
+    raw_name: eNomeColonnaX
+    description: Nome da attribuire alla colonna X del file di uscita (nella 1°riga per la 1°colonna)
+    type: string
+  - index: 10
+    name: NomeColonnaY
+    raw_name: eNomeColonnaY
+    description: Nome da attribuire alla colonna Y del file di uscita (nella 1°riga per la 2°colonna)
+    type: string
+  - index: 11
+    name: ColonnaY1
+    raw_name: eColonnaY1
+    description: Variabile indipendente di comando
+    type: string
+  - index: 12
+    name: NomeColonnaY1
+    raw_name: eNomeColonnaY1
+    description: Nome da attribuire alla colonna Y del file di uscita (nella 1°riga per la 2°colonna)
+    type: string

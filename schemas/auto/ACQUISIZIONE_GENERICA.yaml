@@ -1,0 +1,53 @@
+id: ACQUISIZIONE_GENERICA
+module: Module_TEST_ACQUISIZIONE_GENERICA.bas
+parameters:
+  - index: 1
+    name: NomeFileRampaXY
+    raw_name: eNomeFileRampaXY
+    description: Nome del file della RAMPA XY
+    type: string
+  - index: 2
+    name: NomeFileCurvaComando
+    raw_name: eNomeFileCurvaComando
+    description: Nome del file della CURVA DI COMANDO
+    type: string
+  - index: 3
+    name: IndirizzoScheda
+    raw_name: eIndirizzoScheda
+    description: Source address della MMS6252 per la var di comando
+    type: string
+  - index: 4
+    name: TipoVarIndipendenteXY
+    raw_name: eTipoVarIndipendenteXY
+    description: Tipo della Variabile indipendente di comando
+    type: string
+  - index: 5
+    name: VarIndipendenteXY
+    raw_name: eVarIndipendenteXY
+    description: Variabile indipendente di comando
+    type: string
+  - index: 6
+    name: NomeFileCurvaLimiteInferiore
+    raw_name: NomeFileCurvaLimiteInferiore
+    description: Nome file Curva LIMITE INFERIORE
+    type: string
+  - index: 7
+    name: NomeFileCurvaLimiteSuperiore
+    raw_name: NomeFileCurvaLimiteSuperiore
+    description: Nome file Curva LIMITE SUPERIORE
+    type: string
+  - index: 8
+    name: NomeFileCWGraphSezione
+    raw_name: eNomeFileCWGraphSezione
+    description: Nome file Impostazioni GRAFICO CWGraph
+    type: string
+  - index: 9
+    name: NomeFileCurvaLimiteInferiore_2
+    raw_name: NomeFileCurvaLimiteInferiore_2
+    description: Nome file Curva LIMITE INFERIORE
+    type: string
+  - index: 10
+    name: NomeFileCurvaLimiteSuperiore_2
+    raw_name: NomeFileCurvaLimiteSuperiore_2
+    description: Nome file Curva LIMITE SUPERIORE
+    type: string

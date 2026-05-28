@@ -1,0 +1,11 @@
+id: SCRITTURA_SERIAL_NUMBER
+module: Module_TEST_SCRITTURA_SERIAL_NUMBER.bas
+parameters:
+  - index: 1
+    name: NomeFile
+    raw_name: eNomeFile
+    type: string
+  - index: 2
+    name: Sincro
+    raw_name: eSincro
+    type: string

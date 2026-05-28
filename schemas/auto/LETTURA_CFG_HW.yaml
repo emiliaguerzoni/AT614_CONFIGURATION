@@ -1,0 +1,22 @@
+id: LETTURA_CFG_HW
+module: Module_TEST_LETTURA_CFG_HW.bas
+parameters:
+  - index: 1
+    name: Sincro
+    raw_name: eSincro
+    description: Flag di comando test bloccante o meno
+    type: string
+  - index: 2
+    name: FirmwareVersion
+    raw_name: eFirmwareVersion
+    description: Stringa della versione del firmware
+    type: string
+  - index: 3
+    name: ReleaseHardware
+    raw_name: eReleaseHardware
+    description: Stringa del release hardware del prodotto
+    type: string
+  - index: 4
+    name: JumpSpegniModuli
+    raw_name: eJumpSpegniModuli
+    type: string

@@ -1,0 +1,26 @@
+id: CALIBRAZIONE
+module: Module_TEST_CALIBRAZIONE.bas
+parameters:
+  - index: 1
+    name: NomeFile
+    raw_name: eNomeFile
+    type: string
+  - index: 2
+    name: Sincro
+    raw_name: eSincro
+    type: string
+  - index: 3
+    name: Corsa_Retract_mm
+    raw_name: Corsa_Retract_mm
+    description: Colonna del file di test della corsa massima in retract
+    type: string
+  - index: 4
+    name: Corsa_Extend_mm
+    raw_name: Corsa_Extend_mm
+    description: Colonna del file di test della corsa massima in extend
+    type: string
+  - index: 5
+    name: Corsa_Tolleranza_mm
+    raw_name: Corsa_Tolleranza_mm
+    description: Tolleranza accettabile dal valore nominale della corsa per scatenare la procedura di calibrazione del punto
+    type: string

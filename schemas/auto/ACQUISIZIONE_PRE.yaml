@@ -1,0 +1,88 @@
+id: ACQUISIZIONE_PRE
+module: Module_TEST_ACQUISIZIONE_PRE.bas
+parameters:
+  - index: 1
+    name: NomeFileRampaXY
+    raw_name: eNomeFileRampaXY
+    description: Nome del file della RAMPA XY
+    type: string
+  - index: 2
+    name: NomeFileCurvaComando
+    raw_name: eNomeFileCurvaComando
+    description: Nome del file della CURVA DI COMANDO
+    type: string
+  - index: 3
+    name: Scheda_Indirizzo_X1
+    raw_name: eScheda_Indirizzo_X1
+    description: Source address della MMS6252 per la var di comando
+    type: string
+  - index: 4
+    name: Var_Tipo_X1
+    raw_name: eVar_Tipo_X1
+    description: Tipo della Variabile indipendente di comando
+    type: string
+  - index: 5
+    name: Var_Indirizzo_X1
+    raw_name: eVar_Indirizzo_X1
+    description: Variabile indipendente di comando
+    type: string
+  - index: 6
+    name: Scheda_Indirizzo_X2
+    raw_name: eScheda_Indirizzo_X2
+    description: Source address della MMS6252 per la var di comando
+    type: string
+  - index: 7
+    name: Var_Tipo_X2
+    raw_name: eVar_Tipo_X2
+    description: Tipo della Variabile indipendente di comando
+    type: string
+  - index: 8
+    name: Var_Indirizzo_X2
+    raw_name: eVar_Indirizzo_X2
+    description: Variabile indipendente di comando
+    type: string
+  - index: 9
+    name: Scheda_IndirizzoY1
+    raw_name: eScheda_IndirizzoY1
+    description: Source address della MMS6252 per la var di comando
+    type: string
+  - index: 10
+    name: Var_Tipo_Y1
+    raw_name: eVar_Tipo_Y1
+    description: Tipo della Variabile dipendente da acquisire
+    type: string
+  - index: 11
+    name: Var_Indirizzo_Y1
+    raw_name: eVar_Indirizzo_Y1
+    description: Variabile dipendente da acquisire
+    type: string
+  - index: 12
+    name: Scheda_IndirizzoY2
+    raw_name: eScheda_IndirizzoY2
+    description: Source address della MMS6252 per la var di comando
+    type: string
+  - index: 13
+    name: Var_Tipo_Y2
+    raw_name: eVar_Tipo_Y2
+    description: Tipo della Variabile dipendente da acquisire
+    type: string
+  - index: 14
+    name: Var_Indirizzo_Y2
+    raw_name: eVar_Indirizzo_Y2
+    description: Variabile dipendente da acquisire
+    type: string
+  - index: 15
+    name: Scheda_IndirizzoY3
+    raw_name: eScheda_IndirizzoY3
+    description: Source address della MMS6252 per la var di comando
+    type: string
+  - index: 16
+    name: Var_Tipo_Y3
+    raw_name: eVar_Tipo_Y3
+    description: Tipo della Variabile dipendente da acquisire
+    type: string
+  - index: 17
+    name: Var_Indirizzo_Y3
+    raw_name: eVar_Indirizzo_Y3
+    description: Variabile dipendente da acquisire
+    type: string

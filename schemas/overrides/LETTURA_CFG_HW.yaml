@@ -1,0 +1,13 @@
+id: LETTURA_CFG_HW
+display_name: Lettura configurazione hardware
+replace_parameters: true
+parameters:
+  - index: 1
+    label: Sincronia cattura
+    type: text
+  - index: 2
+    label: Versione firmware attesa
+    type: text
+  - index: 3
+    label: Release hardware attesa
+    type: text

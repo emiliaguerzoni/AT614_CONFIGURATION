@@ -1,0 +1,7 @@
+id: ASSEGNA_NODEID
+module: Module_TEST_ASSEGNA_NODEID.bas
+parameters:
+  - index: 1
+    name: NomeFile
+    raw_name: eNomeFile
+    type: string

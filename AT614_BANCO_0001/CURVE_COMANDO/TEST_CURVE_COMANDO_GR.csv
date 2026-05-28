@@ -1,0 +1,12 @@
+0;-2;errore extend
+0;-2;errore extend
+0,5;-2;100%extend
+0,5;-2;100%extend
+2,25;-1;0%extend
+2,25;0;neutro
+2,75;0;neutro
+2,75;1;0%retract
+4,5;2;100%retract
+4,5;2;100%retract
+5;2;errore retract
+5;2;errore retract

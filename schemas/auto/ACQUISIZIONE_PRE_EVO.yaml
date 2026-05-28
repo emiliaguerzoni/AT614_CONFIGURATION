@@ -1,0 +1,7 @@
+id: ACQUISIZIONE_PRE_EVO
+module: Module_TEST_ACQUISIZIONE_PRE_EVO.bas
+parameters:
+  - index: 1
+    name: NomeFile
+    raw_name: eNomeFile
+    type: string

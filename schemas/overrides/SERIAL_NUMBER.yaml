@@ -1,0 +1,5 @@
+id: SERIAL_NUMBER
+extends: SCRITTURA_SERIAL_NUMBER
+display_name: Scrittura serial number
+replace_parameters: true
+parameters: []

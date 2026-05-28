@@ -1,0 +1,19 @@
+id: CALIBRAZIONE
+display_name: Calibrazione
+replace_parameters: true
+parameters:
+  - index: 1
+    label: Nome file calibrazione
+    type: text
+  - index: 2
+    label: Sincronia calibrazione
+    type: text
+  - index: 3
+    label: Corsa retract
+    type: text
+  - index: 4
+    label: Corsa extend
+    type: text
+  - index: 5
+    label: Tolleranza corsa
+    type: text

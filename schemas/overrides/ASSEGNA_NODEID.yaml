@@ -1,0 +1,7 @@
+id: ASSEGNA_NODEID
+display_name: Assegna Node ID
+replace_parameters: true
+parameters:
+  - index: 1
+    label: Node ID destinazione
+    type: text

@@ -1,0 +1,63 @@
+id: RISPOSTE_GRADINO
+module: Module_TEST_RISPOSTE_GRADINO.bas
+parameters:
+  - index: 1
+    name: Generic_NomeFileCurvaComando
+    raw_name: eGeneric_NomeFileCurvaComando
+    description: Nome del file del comando
+    type: string
+  - index: 2
+    name: Generic_Rampa
+    raw_name: eGeneric_Rampa
+    description: Cartella dove salvare il file
+    type: string
+  - index: 3
+    name: Generic_Command_SA
+    raw_name: eGeneric_Command_SA
+    description: Source address del messaggio AVC da inviare
+    type: string
+  - index: 4
+    name: Generic_NumeroCicli
+    raw_name: eGeneric_NumeroCicli
+    description: Numero di test da effettuare
+    type: string
+  - index: 5
+    name: Variabile_Nome
+    raw_name: eVariabile_Nome
+    description: Nome della variabile di controllo da utilizzare
+    type: string
+  - index: 6
+    name: Variabile_ValoreTest
+    raw_name: eVariabile_ValoreTest
+    description: Valore di fine controllo della variabile utilizzata
+    type: string
+  - index: 7
+    name: Variabile_Fronte
+    raw_name: eVariabile_Fronte
+    description: Fronte di fine controllo della variabile utilizzata
+    type: string
+  - index: 8
+    name: Variabile_FinestraMassima_ms
+    raw_name: eVariabile_FinestraMassima_ms
+    description: Finestra massima di accettabilità
+    type: string
+  - index: 9
+    name: Trigger_Value
+    raw_name: Trigger_Value
+    description: Valore del Trigger della variabile scelta di inizio controllo
+    type: string
+  - index: 10
+    name: Trigger_Fronte
+    raw_name: Trigger_Fronte
+    description: Fronte del trigger ( salita / discesa ) di inizio controllo
+    type: string
+  - index: 11
+    name: Trigger_Tipo
+    raw_name: Trigger_Tipo
+    description: Tipo della variabile scelta come ingresso di trigger
+    type: string
+  - index: 12
+    name: Test_Bloccante
+    raw_name: eTest_Bloccante
+    description: Indica se il test da effettuare è bloccante o meno
+    type: string

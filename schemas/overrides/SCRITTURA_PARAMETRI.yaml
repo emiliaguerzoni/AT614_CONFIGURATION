@@ -1,0 +1,8 @@
+id: SCRITTURA_PARAMETRI
+display_name: Scrittura parametri
+replace_parameters: true
+parameters:
+  - index: 1
+    label: File parametri
+    type: file_ref
+    resource_type: external_config
