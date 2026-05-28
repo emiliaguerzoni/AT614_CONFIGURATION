@@ -12,6 +12,8 @@ from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
 from at614_editor import __version__
+from at614_editor.domain.preferences import load_settings_ini_path
+from at614_editor.domain.settings_ini import discover_root_from_settings_ini
 from at614_editor.ui.main_window import MainWindow, discover_project_root
 
 
@@ -154,7 +156,16 @@ def main(argv: list[str] | None = None) -> int:
         discovered = discover_project_root(explicit_root)
         project_root = discovered if discovered is not None else explicit_root
     else:
-        project_root = discover_project_root(Path.cwd())
+        # 1) Prova dal settings.ini salvato nelle preferenze
+        saved_ini = load_settings_ini_path()
+        if saved_ini is not None:
+            project_root = discover_root_from_settings_ini(saved_ini)
+            if project_root is None:
+                logger.warning(f"Preferences: settings.ini salvato non ha prodotto una root valida: {saved_ini}")
+                project_root = discover_project_root(Path.cwd())
+        else:
+            # 2) Fallback: ricerca automatica dalla cwd
+            project_root = discover_project_root(Path.cwd())
     app = QApplication.instance() or QApplication([])
     apply_light_palette(app)
     window = MainWindow(project_root=project_root)

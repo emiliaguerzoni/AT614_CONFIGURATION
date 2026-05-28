@@ -5,11 +5,13 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMainWindow, QStackedWidget, QToolBar
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QStackedWidget, QToolBar
 
 from PySide6.QtWidgets import QDialog
 
 from at614_editor.domain.project import load_project
+from at614_editor.domain.preferences import load_settings_ini_path, save_settings_ini_path
+from at614_editor.domain.settings_ini import discover_root_from_settings_ini
 from at614_editor.ui.dialogs.clone_program_dialog import CloneProgramDialog
 from at614_editor.ui.editor_shell import EditorShell
 from at614_editor.ui.workspace_home import WorkspaceHome
@@ -110,6 +112,13 @@ class MainWindow(QMainWindow):
         self.forward_action.setEnabled(False)
         toolbar.addAction(self.forward_action)
 
+        toolbar.addSeparator()
+
+        open_settings_action = QAction("Apri settings.ini…", self)
+        open_settings_action.setToolTip("Scegli il file settings.ini del banco AT614 da usare come progetto")
+        open_settings_action.triggered.connect(self._on_open_settings_ini)
+        toolbar.addAction(open_settings_action)
+
     def _connect_signals(self) -> None:
         self.home_page.open_shell_requested.connect(self.show_editor_shell)
         self.home_page.open_first_resource_requested.connect(self.open_first_available_resource)
@@ -132,6 +141,49 @@ class MainWindow(QMainWindow):
             "QPushButton:hover { background: #F2F4F7; }"
             "QTreeWidget, QListWidget, QTabWidget::pane, QScrollArea { background: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 8px; }"
         )
+
+    def _on_open_settings_ini(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Seleziona settings.ini del banco AT614",
+            str(self.project_root or ""),
+            "File INI (settings.ini *.ini);;Tutti i file (*)",
+        )
+        if not file_path:
+            return
+
+        ini_path = Path(file_path)
+        root = discover_root_from_settings_ini(ini_path)
+        if root is None:
+            QMessageBox.warning(
+                self,
+                "Settings.ini non valido",
+                f"Il file selezionato non contiene le chiavi AT614 necessarie:\n{ini_path}",
+            )
+            return
+
+        save_settings_ini_path(ini_path)
+        logger.info(f"MainWindow: settings.ini selezionato → {ini_path}, root → {root}")
+
+        self.project_root = root
+        try:
+            self.project = load_project(root)
+        except Exception as exc:
+            logger.exception(f"MainWindow: errore caricamento progetto da {root}: {exc}")
+            self.project = None
+
+        # Rimuovi le pagine vecchie dallo stack
+        while self.pages.count():
+            old = self.pages.widget(0)
+            self.pages.removeWidget(old)
+            old.deleteLater()
+
+        self.home_page = WorkspaceHome(root, self.project)
+        self.editor_shell = EditorShell(root, self.project)
+        self.pages.addWidget(self.home_page)
+        self.pages.addWidget(self.editor_shell)
+        self._connect_signals()
+        self.show_home()
 
     def show_home(self) -> None:
         self.pages.setCurrentWidget(self.home_page)
