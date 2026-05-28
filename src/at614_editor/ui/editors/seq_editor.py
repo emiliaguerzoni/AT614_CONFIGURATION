@@ -115,6 +115,7 @@ class SeqEditor(QWidget):
         self.file_reference_widgets: list[FileWidget] = []
         self.row_validations: list[RowValidationState] = []
         self._loading_row = False
+        self._building_sequence = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -488,7 +489,8 @@ class SeqEditor(QWidget):
 
         self._update_row_validation(row_index, publish=row_index == self.current_row_index)
         self._update_table_row(row_index, row)
-        self.state_changed.emit()
+        if not self._building_sequence:
+            self.state_changed.emit()
 
     def _handle_live_edit(self, _value: str) -> None:
         if self.current_row_index is None or self._loading_row:
@@ -690,8 +692,14 @@ class SeqEditor(QWidget):
         self.reindex_numeric_indices(select_row=target_row)
 
     def _build_sequence(self, source_path: Path) -> TestSequence:
-        if self.current_row_index is not None:
-            self._commit_row(self.current_row_index)
+        # _building_sequence previene la ricorsione:
+        # _commit_row → state_changed → _update_titlebar_actions → is_dirty → _build_sequence → _commit_row ...
+        self._building_sequence = True
+        try:
+            if self.current_row_index is not None:
+                self._commit_row(self.current_row_index)
+        finally:
+            self._building_sequence = False
 
         rows = [
             TestRow(name=row.name, test_id=row.test_id, index_raw=row.index_raw, parameters=list(row.parameters))
