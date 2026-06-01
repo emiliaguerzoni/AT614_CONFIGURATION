@@ -235,6 +235,10 @@ class EditorShell(QWidget):
             self._show_external_file(selection.display_label, source_path=selection.path)
             return
 
+        if selection.category_key == "output_banco":
+            self._show_output_viewer(archive_path=selection.path)
+            return
+
         self._show_output_viewer()
 
     def current_title(self) -> str:
@@ -477,15 +481,25 @@ class EditorShell(QWidget):
             self._set_validation_badge("warning")
             self.right_panel.set_context([], ["Riferimento esterno non risolto nel progetto"], focus_validation=True)
 
-    def _show_output_viewer(self) -> None:
-        initial_archive = self._default_output_archive_path()
-        viewer = OutputViewer(initial_archive_path=initial_archive)
+    def _show_output_viewer(self, archive_path: Path | None = None) -> None:
+        if archive_path is None:
+            archive_path = self._default_output_archive_path()
+        initial_archive = archive_path
+        initial_selected = None
+        if archive_path is not None and archive_path.is_file():
+            initial_selected = archive_path
+            initial_archive = archive_path.parent
+        viewer = OutputViewer(initial_archive_path=initial_archive, initial_selected_path=initial_selected)
         self._replace_content([viewer])
         self._current_reference_context = []
         self._set_validation_badge("ok")
         self.right_panel.set_context([], [])
 
     def _default_output_archive_path(self) -> Path | None:
+        # Usa il percorso da settings.ini se disponibile (può essere share di rete)
+        if self.project is not None and self.project.folder_graph_saved is not None:
+            return self.project.folder_graph_saved
+        # Fallback al percorso locale
         if self.project_root is None:
             return None
         graph_dir = self.project_root / "GRAPH"

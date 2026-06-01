@@ -44,6 +44,7 @@ class ResourceTree(QWidget):
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.currentItemChanged.connect(self._emit_current_selection)
+        self.tree.itemExpanded.connect(self._on_item_expanded)
         layout.addWidget(self.tree)
 
         self._build_tree()
@@ -64,19 +65,32 @@ class ResourceTree(QWidget):
 
             children = grouped_selections.get(category_key, [])
             if not children:
-                placeholder_text = "Viewer output in sviluppo" if category_key == "output_banco" else "Nessuna risorsa"
+                placeholder_text = "Archivio non configurato in settings.ini" if category_key == "output_banco" else "Nessuna risorsa"
                 placeholder_item = QTreeWidgetItem([placeholder_text])
                 placeholder_item.setFlags(placeholder_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
                 placeholder_item.setDisabled(True)
                 top_item.addChild(placeholder_item)
                 continue
 
-            for selection in children:
-                child_item = QTreeWidgetItem([selection.display_label])
-                child_item.setData(0, Qt.ItemDataRole.UserRole, selection)
-                top_item.addChild(child_item)
-                if selection.path is not None:
-                    self._path_items[selection.path] = child_item
+            if category_key == "output_banco":
+                for selection in children:
+                    root_item = QTreeWidgetItem([selection.display_label])
+                    root_item.setData(0, Qt.ItemDataRole.UserRole, selection)
+                    root_item.setData(0, Qt.ItemDataRole.UserRole + 1, selection.path)
+                    top_item.addChild(root_item)
+                    if selection.path is not None and selection.path.exists() and selection.path.is_dir():
+                        placeholder_item = QTreeWidgetItem(["Carica cartella..."])
+                        placeholder_item.setFlags(placeholder_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+                        root_item.addChild(placeholder_item)
+                    if selection.path is not None:
+                        self._path_items[selection.path] = root_item
+            else:
+                for selection in children:
+                    child_item = QTreeWidgetItem([selection.display_label])
+                    child_item.setData(0, Qt.ItemDataRole.UserRole, selection)
+                    top_item.addChild(child_item)
+                    if selection.path is not None:
+                        self._path_items[selection.path] = child_item
 
             top_item.setExpanded(True)
 
@@ -140,7 +154,81 @@ class ResourceTree(QWidget):
                 ResourceTreeSelection("file_esterni", "File esterni", reference, None)
             )
 
+        if self.project.folder_graph_saved is not None:
+            grouped["output_banco"].append(
+                ResourceTreeSelection(
+                    "output_banco", "Output banco",
+                    "Archivio grafici (GRAPH)",
+                    self.project.folder_graph_saved,
+                )
+            )
+        if self.project.folder_graph_saved_last_acq is not None:
+            grouped["output_banco"].append(
+                ResourceTreeSelection(
+                    "output_banco", "Output banco",
+                    "Ultima acquisizione (RAMPE_XY_LAST)",
+                    self.project.folder_graph_saved_last_acq,
+                )
+            )
+
         return grouped
+
+    def _on_item_expanded(self, item: QTreeWidgetItem) -> None:
+        if item.childCount() == 0:
+            return
+        first_child = item.child(0)
+        if first_child.text(0) != "Carica cartella...":
+            return
+        archive_path = item.data(0, Qt.ItemDataRole.UserRole + 1)
+        if not isinstance(archive_path, Path):
+            return
+
+        item.removeChild(first_child)
+        self._populate_output_archive_items(item, archive_path)
+
+    def _populate_output_archive_items(self, parent_item: QTreeWidgetItem, directory_path: Path) -> None:
+        try:
+            entries = sorted(directory_path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except OSError:
+            error_item = QTreeWidgetItem(["Impossibile leggere la cartella"]) 
+            error_item.setFlags(error_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+            error_item.setDisabled(True)
+            parent_item.addChild(error_item)
+            return
+
+        if not entries:
+            empty_item = QTreeWidgetItem(["Cartella vuota"])
+            empty_item.setFlags(empty_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+            empty_item.setDisabled(True)
+            parent_item.addChild(empty_item)
+            return
+
+        archive_root = self._archive_root_for(parent_item)
+        for path in entries:
+            node_label = path.name
+            child_item = QTreeWidgetItem([node_label])
+            selection = ResourceTreeSelection(
+                "output_banco",
+                "Output banco",
+                node_label,
+                path,
+            )
+            child_item.setData(0, Qt.ItemDataRole.UserRole, selection)
+            child_item.setData(0, Qt.ItemDataRole.UserRole + 1, path)
+            parent_item.addChild(child_item)
+            self._path_items[path] = child_item
+            if path.is_dir():
+                placeholder_child = QTreeWidgetItem(["Carica cartella..."])
+                placeholder_child.setFlags(placeholder_child.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+                child_item.addChild(placeholder_child)
+
+    def _archive_root_for(self, item: QTreeWidgetItem) -> Path | None:
+        while item is not None:
+            selection = item.data(0, Qt.ItemDataRole.UserRole)
+            if isinstance(selection, ResourceTreeSelection) and selection.category_key == "output_banco" and selection.path is not None:
+                return selection.path
+            item = item.parent()
+        return None
 
     def _emit_current_selection(self, current: QTreeWidgetItem | None, _previous: QTreeWidgetItem | None) -> None:
         if current is None:

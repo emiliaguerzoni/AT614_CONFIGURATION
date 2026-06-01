@@ -155,6 +155,7 @@ def main(argv: list[str] | None = None) -> int:
         explicit_root = normalize_project_root_arg(args.project_root).resolve()
         discovered = discover_project_root(explicit_root)
         project_root = discovered if discovered is not None else explicit_root
+        saved_ini = None
     else:
         # 1) Prova dal settings.ini salvato nelle preferenze
         saved_ini = load_settings_ini_path()
@@ -163,12 +164,13 @@ def main(argv: list[str] | None = None) -> int:
             if project_root is None:
                 logger.warning(f"Preferences: settings.ini salvato non ha prodotto una root valida: {saved_ini}")
                 project_root = discover_project_root(Path.cwd())
+                saved_ini = None
         else:
             # 2) Fallback: ricerca automatica dalla cwd
             project_root = discover_project_root(Path.cwd())
     app = QApplication.instance() or QApplication([])
     apply_light_palette(app)
-    window = MainWindow(project_root=project_root)
+    window = MainWindow(project_root=project_root, settings_ini_path=saved_ini)
     window.show()
 
     if args.smoke_ui:

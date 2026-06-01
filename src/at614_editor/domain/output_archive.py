@@ -113,21 +113,23 @@ def save_cached_index(archive: OutputArchive) -> Path:
 
 
 def is_cache_stale(archive: OutputArchive) -> bool:
+    """Verifica se il cache è obsoleto con una sola scansione invece di due."""
     if archive.indexed_at <= 0:
         return True
+
+    cached_paths = {item.relative_path for item in archive.files}
+    current_paths: set[str] = set()
 
     for path in archive.root_path.rglob(CSV_PATTERN):
         if not path.is_file():
             continue
+        rel = path.relative_to(archive.root_path)
+        if any(part.startswith(".") for part in rel.parts):
+            continue
         if path.stat().st_mtime > archive.indexed_at:
             return True
+        current_paths.add(rel.as_posix())
 
-    cached_paths = {item.relative_path for item in archive.files}
-    current_paths = {
-        path.relative_to(archive.root_path).as_posix()
-        for path in archive.root_path.rglob(CSV_PATTERN)
-        if path.is_file()
-    }
     return cached_paths != current_paths
 
 

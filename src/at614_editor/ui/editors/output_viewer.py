@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QDate, QThread, QObject, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PySide6.QtCore import QDate
 
 from at614_editor.domain.output_archive import (
     OutputArchive,
@@ -30,11 +29,47 @@ from at614_editor.domain.output_archive import (
     read_csv_columns,
 )
 from at614_editor.ui.components.chart_stage import ChartStage
-from at614_editor.ui.components.read_only_banner import ReadOnlyBanner
+
+
+MAX_TABLE_ROWS = 500
+
+
+class ArchiveLoader(QObject):
+    finished = Signal(object)
+    error = Signal(str)
+
+    def __init__(self, root_path: Path) -> None:
+        super().__init__()
+        self.root_path = root_path
+
+    def run(self) -> None:
+        try:
+            archive = ensure_archive_index(self.root_path)
+        except Exception as exc:
+            self.error.emit(str(exc))
+            return
+        self.finished.emit(archive)
+
+
+class CsvLoader(QObject):
+    finished = Signal(list, list)
+    error = Signal(str)
+
+    def __init__(self, path: Path) -> None:
+        super().__init__()
+        self.path = path
+
+    def run(self) -> None:
+        try:
+            headers, rows = read_csv_columns(self.path)
+        except Exception as exc:
+            self.error.emit(str(exc))
+            return
+        self.finished.emit(headers, rows)
 
 
 class OutputViewer(QWidget):
-    """Viewer sola lettura per archivi output del banco."""
+    """Viewer sola lettura per archivi output del banco — lazy load."""
 
     editor_name = "OutputViewer"
     supports_save = False
@@ -43,6 +78,7 @@ class OutputViewer(QWidget):
     def __init__(
         self,
         initial_archive_path: Path | None = None,
+        initial_selected_path: Path | None = None,
         open_folder_callback: Callable[[Path], None] | None = None,
         parent=None,
     ) -> None:
@@ -53,39 +89,66 @@ class OutputViewer(QWidget):
         self.csv_headers: list[str] = []
         self.csv_rows: list[list[str]] = []
         self.open_folder_callback = open_folder_callback
+        self._archive_thread: QThread | None = None
+        self._archive_loader: ArchiveLoader | None = None
+        self._csv_thread: QThread | None = None
+        self._csv_loader: CsvLoader | None = None
+        self._initial_archive_path: Path | None = initial_archive_path
+        self._initial_selected_path: Path | None = initial_selected_path
+        self.destroyed.connect(self._cleanup_threads)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
 
-        layout.addWidget(ReadOnlyBanner())
-
-        archive_row = QHBoxLayout()
+        # ── toolbar archivio ──────────────────────────────────────────────
+        archive_toolbar = QHBoxLayout()
+        archive_toolbar.setContentsMargins(0, 0, 0, 0)
         archive_label = QLabel("Archivio output:")
         archive_label.setStyleSheet("font-weight: 600;")
         self.archive_path_label = QLabel("— non selezionato —")
         self.archive_path_label.setStyleSheet("color: #475467;")
         self.archive_path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.configure_archive_button = QPushButton("Configura archivio output")
+
+        self.load_button = QPushButton("Carica ▶")
+        self.load_button.setToolTip("Avvia la scansione della cartella e carica l'elenco file")
+        self.load_button.clicked.connect(self._on_load_clicked)
+        self.load_button.setEnabled(False)
+
+        self.configure_archive_button = QPushButton("Sfoglia…")
+        self.configure_archive_button.setToolTip("Scegli la cartella dell'archivio output")
         self.configure_archive_button.clicked.connect(self._on_configure_archive)
+
         self.refresh_button = QPushButton("Aggiorna indice")
+        self.refresh_button.setToolTip("Riscansiona la cartella anche se il cache è aggiornato")
         self.refresh_button.clicked.connect(self._on_refresh_archive)
         self.refresh_button.setEnabled(False)
 
-        archive_row.addWidget(archive_label)
-        archive_row.addWidget(self.archive_path_label, 1)
-        archive_row.addWidget(self.configure_archive_button)
-        archive_row.addWidget(self.refresh_button)
-        layout.addLayout(archive_row)
+        self.toggle_filters_button = QPushButton("Mostra filtri")
+        self.toggle_filters_button.setCheckable(True)
+        self.toggle_filters_button.toggled.connect(self._toggle_filter_panel)
 
-        filters_row = QHBoxLayout()
+        archive_toolbar.addWidget(archive_label)
+        archive_toolbar.addWidget(self.archive_path_label, 1)
+        archive_toolbar.addWidget(self.load_button)
+        archive_toolbar.addWidget(self.configure_archive_button)
+        archive_toolbar.addWidget(self.refresh_button)
+        archive_toolbar.addWidget(self.toggle_filters_button)
+        layout.addLayout(archive_toolbar)
+
+        # ── filtri ────────────────────────────────────────────────────────
+        self.filter_panel = QWidget()
+        self.filter_panel.setVisible(False)
+        filter_layout = QHBoxLayout(self.filter_panel)
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+
         self.search_field = QLineEdit()
         self.search_field.setPlaceholderText("Filtra per nome o cartella…")
-        self.search_field.setToolTip("Filtra i file per nome o percorso cartella. La ricerca è case-insensitive.")
+        self.search_field.setToolTip("Filtra i file per nome o percorso cartella.")
         self.search_field.textChanged.connect(self._apply_filters)
 
         self.created_from = QDateEdit()
-        self.created_from.setSpecialValueText("data creazione da")
+        self.created_from.setSpecialValueText("da data")
         self.created_from.setCalendarPopup(True)
         self.created_from.setDate(QDate(2000, 1, 1))
         self.created_from.setMinimumDate(QDate(2000, 1, 1))
@@ -93,21 +156,22 @@ class OutputViewer(QWidget):
         self.created_from.dateChanged.connect(self._apply_filters)
 
         self.created_to = QDateEdit()
-        self.created_to.setSpecialValueText("data creazione a")
+        self.created_to.setSpecialValueText("a data")
         self.created_to.setCalendarPopup(True)
         self.created_to.setDate(QDate.currentDate())
         self.created_to.setToolTip("Mostra solo i file creati fino a questa data.")
         self.created_to.dateChanged.connect(self._apply_filters)
 
-        filters_row.addWidget(QLabel("Filtri:"))
-        filters_row.addWidget(self.search_field, 1)
-        filters_row.addWidget(QLabel("Creato dal"))
-        filters_row.addWidget(self.created_from)
-        filters_row.addWidget(QLabel("al"))
-        filters_row.addWidget(self.created_to)
-        layout.addLayout(filters_row)
+        filter_layout.addWidget(QLabel("Filtri:"))
+        filter_layout.addWidget(self.search_field, 1)
+        filter_layout.addWidget(QLabel("Creato dal"))
+        filter_layout.addWidget(self.created_from)
+        filter_layout.addWidget(QLabel("al"))
+        filter_layout.addWidget(self.created_to)
+        layout.addWidget(self.filter_panel)
 
-        self.status_label = QLabel("Configura un archivio output per iniziare.")
+        # ── status + tabella ──────────────────────────────────────────────
+        self.status_label = QLabel("Seleziona una cartella archivio e premi 'Carica ▶' per iniziare.")
         self.status_label.setStyleSheet("color: #475467;")
         layout.addWidget(self.status_label)
 
@@ -124,13 +188,15 @@ class OutputViewer(QWidget):
         self.results_table.setColumnWidth(2, 140)
         self.results_table.setColumnWidth(3, 140)
         self.results_table.setColumnWidth(4, 100)
+        self.results_table.setAlternatingRowColors(True)
         self.results_table.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self.results_table, 1)
 
+        # ── assi grafico ──────────────────────────────────────────────────
         axis_row = QHBoxLayout()
         axis_row.addWidget(QLabel("Asse X:"))
         self.x_axis_combo = QComboBox()
-        self.x_axis_combo.setToolTip("Seleziona la colonna da usare come asse X (orizzontale) del grafico.")
+        self.x_axis_combo.setToolTip("Seleziona la colonna come asse X del grafico.")
         self.x_axis_combo.currentIndexChanged.connect(self._refresh_plot_summary)
         axis_row.addWidget(self.x_axis_combo)
 
@@ -138,7 +204,7 @@ class OutputViewer(QWidget):
         self.y_axes_list = QListWidget()
         self.y_axes_list.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.y_axes_list.setMaximumHeight(80)
-        self.y_axes_list.setToolTip("Seleziona una o più colonne da rappresentare come assi Y (verticali). Clicca con Ctrl per selezioni multiple.")
+        self.y_axes_list.setToolTip("Seleziona una o più colonne come assi Y. Ctrl+click per selezione multipla.")
         self.y_axes_list.itemSelectionChanged.connect(self._refresh_plot_summary)
         axis_row.addWidget(self.y_axes_list, 1)
         layout.addLayout(axis_row)
@@ -161,38 +227,115 @@ class OutputViewer(QWidget):
         self._set_actions_enabled(False)
         layout.addWidget(self.chart_stage)
 
+        # ── init con path pre-configurata ─────────────────────────────────
         if initial_archive_path is not None:
-            self.load_archive(initial_archive_path)
+            self._set_archive_path(initial_archive_path)
 
-    # ------------------------------------------------------------------ archive
+    # ── archive path setup ────────────────────────────────────────────────
+
+    def _set_archive_path(self, path: Path) -> None:
+        """Imposta la cartella archivio senza scansionare. Abilita il pulsante Carica."""
+        self._initial_archive_path = path
+        self.archive_path_label.setText(str(path))
+        self.load_button.setEnabled(True)
+        self.status_label.setText(f"Archivio: {path.name} — premi 'Carica ▶' per scansionare.")
+
+    # ── archive loading ───────────────────────────────────────────────────
+
+    def _on_load_clicked(self) -> None:
+        if self._initial_archive_path is not None:
+            self.load_archive(self._initial_archive_path)
+        elif self.archive is not None:
+            self.load_archive(self.archive.root_path)
 
     def load_archive(self, root_path: Path) -> None:
-        try:
-            self.archive = ensure_archive_index(root_path)
-        except ValueError as exc:
-            self.status_label.setText(str(exc))
-            self.archive = None
-            self.filtered_files = []
-            self._render_results()
-            self.refresh_button.setEnabled(False)
-            return
-
         self.archive_path_label.setText(str(root_path))
+        self.status_label.setText("Indicizzazione archivio in corso…")
+        self.results_table.setRowCount(0)
+        self.load_button.setEnabled(False)
+        self.refresh_button.setEnabled(False)
+        self._set_actions_enabled(False)
+
+        self._stop_archive_thread()
+
+        self._archive_loader = ArchiveLoader(root_path)
+        self._archive_thread = QThread()
+        self._archive_loader.moveToThread(self._archive_thread)
+        self._archive_thread.started.connect(self._archive_loader.run)
+        self._archive_loader.finished.connect(self._on_archive_loaded)
+        self._archive_loader.error.connect(self._on_archive_load_error)
+        self._archive_loader.finished.connect(self._archive_thread.quit)
+        self._archive_loader.error.connect(self._archive_thread.quit)
+        self._archive_thread.finished.connect(self._archive_loader.deleteLater)
+        self._archive_thread.finished.connect(self._archive_thread.deleteLater)
+        self._archive_thread.start()
+
+    def _stop_archive_thread(self) -> None:
+        if self._archive_thread is None:
+            return
+        if self._archive_thread.isRunning():
+            self._archive_thread.quit()
+            if not self._archive_thread.wait(5000):
+                self._archive_thread.terminate()
+                self._archive_thread.wait(1000)
+        self._archive_thread = None
+        self._archive_loader = None
+
+    def _stop_csv_thread(self) -> None:
+        if self._csv_thread is None:
+            return
+        if self._csv_thread.isRunning():
+            self._csv_thread.quit()
+            if not self._csv_thread.wait(3000):
+                self._csv_thread.terminate()
+                self._csv_thread.wait(500)
+        self._csv_thread = None
+        self._csv_loader = None
+
+    def _cleanup_threads(self) -> None:
+        self._stop_archive_thread()
+        self._stop_csv_thread()
+
+    def _on_archive_loaded(self, archive: OutputArchive) -> None:
+        self.archive = archive
+        self._initial_archive_path = None
+        self.load_button.setEnabled(False)
         self.refresh_button.setEnabled(True)
         self._apply_filters()
+        if self._initial_selected_path is not None:
+            self._select_initial_path(self._initial_selected_path)
+            self._initial_selected_path = None
+
+    def _on_archive_load_error(self, message: str) -> None:
+        self.status_label.setText(f"Errore: {message}")
+        self.archive = None
+        self.filtered_files = []
+        self._render_results()
+        self.load_button.setEnabled(True)
+        self.refresh_button.setEnabled(False)
+        self._archive_thread = None
+        self._archive_loader = None
 
     def _on_configure_archive(self) -> None:
         chosen = QFileDialog.getExistingDirectory(self, "Seleziona archivio output")
         if not chosen:
             return
-        self.load_archive(Path(chosen))
+        self._set_archive_path(Path(chosen))
+        self.archive = None
+        self.filtered_files = []
+        self._render_results()
 
     def _on_refresh_archive(self) -> None:
-        if self.archive is None:
-            return
-        self.load_archive(self.archive.root_path)
+        if self.archive is None and self._initial_archive_path is not None:
+            self.load_archive(self._initial_archive_path)
+        elif self.archive is not None:
+            self.load_archive(self.archive.root_path)
 
-    # ------------------------------------------------------------------ filters
+    def _toggle_filter_panel(self, visible: bool) -> None:
+        self.filter_panel.setVisible(visible)
+        self.toggle_filters_button.setText("Nascondi filtri" if visible else "Mostra filtri")
+
+    # ── filters ───────────────────────────────────────────────────────────
 
     def _apply_filters(self) -> None:
         if self.archive is None:
@@ -218,23 +361,32 @@ class OutputViewer(QWidget):
             return datetime.combine(py_date, datetime.max.time())
         return datetime.combine(py_date, datetime.min.time())
 
-    # ------------------------------------------------------------------ table
+    # ── table (virtuale, max MAX_TABLE_ROWS righe) ────────────────────────
 
     def _render_results(self) -> None:
-        self.results_table.setRowCount(len(self.filtered_files))
+        visible = self.filtered_files[:MAX_TABLE_ROWS]
+        self.results_table.setRowCount(len(visible))
+
         if self.archive is None:
-            self.status_label.setText("Configura un archivio output per iniziare.")
+            self.status_label.setText("Seleziona una cartella archivio e premi 'Carica ▶' per iniziare.")
+        elif len(self.filtered_files) > MAX_TABLE_ROWS:
+            self.status_label.setText(
+                f"Mostrando {MAX_TABLE_ROWS} di {len(self.filtered_files)} file "
+                f"(su {len(self.archive.files)} totali) — affina i filtri per altri risultati."
+            )
         else:
             self.status_label.setText(
-                f"{len(self.filtered_files)} risultati su {len(self.archive.files)} file indicizzati."
+                f"{len(self.filtered_files)} file su {len(self.archive.files)} totali."
             )
 
-        for row_index, entry in enumerate(self.filtered_files):
+        for row_index, entry in enumerate(visible):
             self.results_table.setItem(row_index, 0, QTableWidgetItem(entry.folder or "—"))
             self.results_table.setItem(row_index, 1, QTableWidgetItem(entry.name))
             self.results_table.setItem(row_index, 2, QTableWidgetItem(_format_timestamp(entry.created_at)))
             self.results_table.setItem(row_index, 3, QTableWidgetItem(_format_timestamp(entry.modified_at)))
             self.results_table.setItem(row_index, 4, QTableWidgetItem(_format_size(entry.size_bytes)))
+
+    # ── CSV async ─────────────────────────────────────────────────────────
 
     def _on_selection_changed(self) -> None:
         rows = self.results_table.selectionModel().selectedRows()
@@ -251,16 +403,32 @@ class OutputViewer(QWidget):
 
         entry = self.filtered_files[row_index]
         self.selected_file = entry
-
         target_path = self.archive.root_path / entry.relative_path
-        try:
-            headers, rows_data = read_csv_columns(target_path)
-        except ValueError as exc:
-            self.status_label.setText(f"Impossibile leggere {entry.name}: {exc}")
-            return
 
+        self._stop_csv_thread()
+        self.status_label.setText(f"Lettura {entry.name}…")
+        self.x_axis_combo.clear()
+        self.y_axes_list.clear()
+        self._set_actions_enabled(False)
+
+        self._csv_loader = CsvLoader(target_path)
+        self._csv_thread = QThread()
+        self._csv_loader.moveToThread(self._csv_thread)
+        self._csv_thread.started.connect(self._csv_loader.run)
+        self._csv_loader.finished.connect(self._on_csv_loaded)
+        self._csv_loader.error.connect(self._on_csv_load_error)
+        self._csv_loader.finished.connect(self._csv_thread.quit)
+        self._csv_loader.error.connect(self._csv_thread.quit)
+        self._csv_thread.finished.connect(self._csv_loader.deleteLater)
+        self._csv_thread.finished.connect(self._csv_thread.deleteLater)
+        self._csv_thread.start()
+
+    def _on_csv_loaded(self, headers: list, rows_data: list) -> None:
         self.csv_headers = headers
         self.csv_rows = rows_data
+        self._csv_thread = None
+        self._csv_loader = None
+
         self.x_axis_combo.blockSignals(True)
         self.x_axis_combo.clear()
         for header in headers:
@@ -271,7 +439,6 @@ class OutputViewer(QWidget):
         self.y_axes_list.clear()
         for header in headers:
             self.y_axes_list.addItem(header)
-        # Auto-seleziona tutte le colonne tranne la prima (X) come assi Y
         for i in range(1, self.y_axes_list.count()):
             self.y_axes_list.item(i).setSelected(True)
         self.y_axes_list.blockSignals(False)
@@ -279,7 +446,19 @@ class OutputViewer(QWidget):
         self._set_actions_enabled(True)
         self._refresh_plot_summary()
 
-    # ------------------------------------------------------------------ plotting
+        total = len(self.archive.files) if self.archive else 0
+        self.status_label.setText(
+            f"{len(self.filtered_files)} file su {total} totali. "
+            f"File aperto: {self.selected_file.name if self.selected_file else ''} "
+            f"({len(rows_data)} righe, {len(headers)} colonne)."
+        )
+
+    def _on_csv_load_error(self, message: str) -> None:
+        self.status_label.setText(f"Errore lettura file: {message}")
+        self._csv_thread = None
+        self._csv_loader = None
+
+    # ── plotting ──────────────────────────────────────────────────────────
 
     def _refresh_plot_summary(self) -> None:
         if self.selected_file is None:
@@ -311,7 +490,7 @@ class OutputViewer(QWidget):
         else:
             self.chart_stage.plot_series([], [])
 
-    # ------------------------------------------------------------------ actions
+    # ── actions ───────────────────────────────────────────────────────────
 
     def _set_actions_enabled(self, enabled: bool) -> None:
         for action_button in self.chart_stage.toolbar_buttons:
@@ -345,7 +524,9 @@ class OutputViewer(QWidget):
         )
         if not target:
             return
-        self.status_label.setText(f"Confronto richiesto tra {path.name} e {Path(target).name} — overlay non ancora disponibile.")
+        self.status_label.setText(
+            f"Confronto tra {path.name} e {Path(target).name} — overlay non ancora disponibile."
+        )
 
     def _on_print(self) -> None:
         if self.selected_file is None:
@@ -358,8 +539,18 @@ class OutputViewer(QWidget):
             return
         if self.open_folder_callback is not None:
             self.open_folder_callback(path.parent)
-        else:
-            self.status_label.setText(f"Cartella: {path.parent}")
+
+    def _select_initial_path(self, selected_path: Path) -> None:
+        if self.archive is None:
+            return
+        if not selected_path.exists() or selected_path.is_dir():
+            return
+        rel = selected_path.relative_to(self.archive.root_path).as_posix()
+        for index, entry in enumerate(self.filtered_files):
+            if entry.relative_path == rel and index < MAX_TABLE_ROWS:
+                self.results_table.selectRow(index)
+                self.results_table.scrollToItem(self.results_table.item(index, 0))
+                return
 
 
 def _format_size(num_bytes: int) -> str:

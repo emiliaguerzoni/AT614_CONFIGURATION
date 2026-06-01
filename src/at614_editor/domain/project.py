@@ -31,6 +31,9 @@ class AT614Project:
     unresolved_file_references: dict[Path, set[str]] = field(default_factory=dict)
     # Percorso assoluto di FolderConfigurazioneModuli da settings.ini (file parametri .txt)
     folder_configurazione_moduli: Path | None = None
+    # Percorsi archivio output da settings.ini (possono essere share di rete)
+    folder_graph_saved: Path | None = None
+    folder_graph_saved_last_acq: Path | None = None
 
     def add_reference(self, source: Path, target: Path) -> None:
         self.uses.setdefault(source, set()).add(target)
@@ -162,10 +165,27 @@ def _index_test_references(project: AT614Project) -> None:
 
 
 
-def load_project(root_path: Path) -> AT614Project:
-    distributore_dir = root_path / "DISTRIBUTORE"
-    test_dir = root_path / "TEST"
-    settings_program_dir = root_path / SETTINGS_PROGRAM_DIR
+def load_project(root_path: Path, settings_ini_path: Path | None = None) -> AT614Project:
+    # Leggi TUTTI i percorsi direttamente da settings.ini (fonte di verità).
+    # Fallback su root_path/subdir solo se settings.ini non è disponibile.
+    _ini: dict[str, Path] = {}
+    if settings_ini_path is not None and settings_ini_path.exists():
+        _ini = parse_settings_ini(settings_ini_path)
+
+    distributore_dir      = _ini.get("FolderConfigurazioneBancoCollaudo") or root_path / "DISTRIBUTORE"
+    test_dir              = _ini.get("FolderConfigurazioneTest")           or root_path / "TEST"
+    settings_program_dir  = _ini.get("FolderSettaggiProgramma")            or root_path / SETTINGS_PROGRAM_DIR
+    point_series_dirs: dict[str, Path] = {
+        "CURVE_COMANDO": _ini.get("FolderFileCurveComando") or root_path / "CURVE_COMANDO",
+        "CURVE_LIMITE":  _ini.get("FolderFileCurveLimite")  or root_path / "CURVE_LIMITE",
+        "RAMPE_XY":      _ini.get("FolderRampeXY")          or root_path / "RAMPE_XY",
+    }
+
+    # Percorsi su share diversi: DEVONO venire da settings.ini, non ricostruibili da root_path
+    _raw_moduli = _ini.get("FolderConfigurazioneModuli")
+    folder_configurazione_moduli: Path | None = _raw_moduli if (_raw_moduli is not None and _raw_moduli.exists()) else None
+    folder_graph_saved:           Path | None = _ini.get("FolderGraphSaved")
+    folder_graph_saved_last_acq:  Path | None = _ini.get("FolderGraphSaved_LastACQ")
 
     distributori: dict[Path, DistributoreConfig] = {}
     test_sequences: dict[Path, TestSequence] = {}
@@ -181,11 +201,9 @@ def load_project(root_path: Path) -> AT614Project:
         for path in sorted(test_dir.glob("*.csv")):
             test_sequences[path] = parse_test_csv(path)
 
-    for directory_name in POINT_SERIES_DIRECTORIES:
-        directory_path = root_path / directory_name
+    for category_name, directory_path in point_series_dirs.items():
         if not directory_path.exists():
             continue
-
         for path in sorted(directory_path.glob("*.csv")):
             point_series_resources[path] = parse_point_series(path)
 
@@ -201,16 +219,6 @@ def load_project(root_path: Path) -> AT614Project:
                 for path in sorted(mms2218_dir.glob("*.csv")):
                     mms2218_resources[path] = parse_mms2218(path)
 
-    # Cerca settings.ini per leggere FolderConfigurazioneModuli
-    folder_configurazione_moduli: Path | None = None
-    for _settings_candidate in (root_path / "BAS" / "settings.ini", root_path / "settings.ini"):
-        if _settings_candidate.exists():
-            _settings = parse_settings_ini(_settings_candidate)
-            _raw = _settings.get("FolderConfigurazioneModuli")
-            if _raw is not None and _raw.exists():
-                folder_configurazione_moduli = _raw
-            break
-
     project = AT614Project(
         root_path=root_path,
         distributori=distributori,
@@ -220,6 +228,8 @@ def load_project(root_path: Path) -> AT614Project:
         mms2218_resources=mms2218_resources,
         resource_index=_build_resource_file_index(root_path),
         folder_configurazione_moduli=folder_configurazione_moduli,
+        folder_graph_saved=folder_graph_saved,
+        folder_graph_saved_last_acq=folder_graph_saved_last_acq,
     )
 
     _index_distributore_references(project)
