@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import Qt, QDate, QThread, QObject, Signal
+from PySide6.QtCore import Qt, QDate, QThread, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -34,38 +34,38 @@ from at614_editor.ui.components.chart_stage import ChartStage
 MAX_TABLE_ROWS = 500
 
 
-class ArchiveLoader(QObject):
-    finished = Signal(object)
-    error = Signal(str)
+class ArchiveLoader(QThread):
+    archive_ready = Signal(object)
+    load_error = Signal(str)
 
-    def __init__(self, root_path: Path) -> None:
-        super().__init__()
+    def __init__(self, root_path: Path, parent=None) -> None:
+        super().__init__(parent)
         self.root_path = root_path
 
     def run(self) -> None:
         try:
             archive = ensure_archive_index(self.root_path)
         except Exception as exc:
-            self.error.emit(str(exc))
+            self.load_error.emit(str(exc))
             return
-        self.finished.emit(archive)
+        self.archive_ready.emit(archive)
 
 
-class CsvLoader(QObject):
-    finished = Signal(list, list)
-    error = Signal(str)
+class CsvLoader(QThread):
+    csv_ready = Signal(list, list)
+    load_error = Signal(str)
 
-    def __init__(self, path: Path) -> None:
-        super().__init__()
+    def __init__(self, path: Path, parent=None) -> None:
+        super().__init__(parent)
         self.path = path
 
     def run(self) -> None:
         try:
             headers, rows = read_csv_columns(self.path)
         except Exception as exc:
-            self.error.emit(str(exc))
+            self.load_error.emit(str(exc))
             return
-        self.finished.emit(headers, rows)
+        self.csv_ready.emit(headers, rows)
 
 
 class OutputViewer(QWidget):
@@ -89,9 +89,7 @@ class OutputViewer(QWidget):
         self.csv_headers: list[str] = []
         self.csv_rows: list[list[str]] = []
         self.open_folder_callback = open_folder_callback
-        self._archive_thread: QThread | None = None
         self._archive_loader: ArchiveLoader | None = None
-        self._csv_thread: QThread | None = None
         self._csv_loader: CsvLoader | None = None
         self._initial_archive_path: Path | None = initial_archive_path
         self._initial_selected_path: Path | None = initial_selected_path
@@ -259,38 +257,42 @@ class OutputViewer(QWidget):
         self._stop_archive_thread()
 
         self._archive_loader = ArchiveLoader(root_path)
-        self._archive_thread = QThread()
-        self._archive_loader.moveToThread(self._archive_thread)
-        self._archive_thread.started.connect(self._archive_loader.run)
-        self._archive_loader.finished.connect(self._on_archive_loaded)
-        self._archive_loader.error.connect(self._on_archive_load_error)
-        self._archive_loader.finished.connect(self._archive_thread.quit)
-        self._archive_loader.error.connect(self._archive_thread.quit)
-        self._archive_thread.finished.connect(self._archive_loader.deleteLater)
-        self._archive_thread.finished.connect(self._archive_thread.deleteLater)
-        self._archive_thread.start()
+        self._archive_loader.archive_ready.connect(self._on_archive_loaded)
+        self._archive_loader.load_error.connect(self._on_archive_load_error)
+        self._archive_loader.finished.connect(self._on_archive_thread_done)
+        self._archive_loader.start()
 
     def _stop_archive_thread(self) -> None:
-        if self._archive_thread is None:
+        if self._archive_loader is None:
             return
-        if self._archive_thread.isRunning():
-            self._archive_thread.quit()
-            if not self._archive_thread.wait(5000):
-                self._archive_thread.terminate()
-                self._archive_thread.wait(1000)
-        self._archive_thread = None
+        if self._archive_loader.isRunning():
+            self._archive_loader.quit()
+            if not self._archive_loader.wait(5000):
+                self._archive_loader.terminate()
+                self._archive_loader.wait(1000)
+        self._archive_loader.deleteLater()
         self._archive_loader = None
 
+    def _on_archive_thread_done(self) -> None:
+        if self._archive_loader is not None:
+            self._archive_loader.deleteLater()
+            self._archive_loader = None
+
     def _stop_csv_thread(self) -> None:
-        if self._csv_thread is None:
+        if self._csv_loader is None:
             return
-        if self._csv_thread.isRunning():
-            self._csv_thread.quit()
-            if not self._csv_thread.wait(3000):
-                self._csv_thread.terminate()
-                self._csv_thread.wait(500)
-        self._csv_thread = None
+        if self._csv_loader.isRunning():
+            self._csv_loader.quit()
+            if not self._csv_loader.wait(3000):
+                self._csv_loader.terminate()
+                self._csv_loader.wait(500)
+        self._csv_loader.deleteLater()
         self._csv_loader = None
+
+    def _on_csv_thread_done(self) -> None:
+        if self._csv_loader is not None:
+            self._csv_loader.deleteLater()
+            self._csv_loader = None
 
     def _cleanup_threads(self) -> None:
         self._stop_archive_thread()
@@ -313,8 +315,6 @@ class OutputViewer(QWidget):
         self._render_results()
         self.load_button.setEnabled(True)
         self.refresh_button.setEnabled(False)
-        self._archive_thread = None
-        self._archive_loader = None
 
     def _on_configure_archive(self) -> None:
         chosen = QFileDialog.getExistingDirectory(self, "Seleziona archivio output")
@@ -412,22 +412,14 @@ class OutputViewer(QWidget):
         self._set_actions_enabled(False)
 
         self._csv_loader = CsvLoader(target_path)
-        self._csv_thread = QThread()
-        self._csv_loader.moveToThread(self._csv_thread)
-        self._csv_thread.started.connect(self._csv_loader.run)
-        self._csv_loader.finished.connect(self._on_csv_loaded)
-        self._csv_loader.error.connect(self._on_csv_load_error)
-        self._csv_loader.finished.connect(self._csv_thread.quit)
-        self._csv_loader.error.connect(self._csv_thread.quit)
-        self._csv_thread.finished.connect(self._csv_loader.deleteLater)
-        self._csv_thread.finished.connect(self._csv_thread.deleteLater)
-        self._csv_thread.start()
+        self._csv_loader.csv_ready.connect(self._on_csv_loaded)
+        self._csv_loader.load_error.connect(self._on_csv_load_error)
+        self._csv_loader.finished.connect(self._on_csv_thread_done)
+        self._csv_loader.start()
 
     def _on_csv_loaded(self, headers: list, rows_data: list) -> None:
         self.csv_headers = headers
         self.csv_rows = rows_data
-        self._csv_thread = None
-        self._csv_loader = None
 
         self.x_axis_combo.blockSignals(True)
         self.x_axis_combo.clear()
@@ -455,8 +447,6 @@ class OutputViewer(QWidget):
 
     def _on_csv_load_error(self, message: str) -> None:
         self.status_label.setText(f"Errore lettura file: {message}")
-        self._csv_thread = None
-        self._csv_loader = None
 
     # ── plotting ──────────────────────────────────────────────────────────
 

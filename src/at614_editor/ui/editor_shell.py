@@ -26,6 +26,7 @@ from at614_editor.ui.components.impact_dialog import ImpactDialog
 from at614_editor.ui.components.chart_stage import ChartStage
 from at614_editor.ui.components.read_only_banner import ReadOnlyBanner
 from at614_editor.ui.components.rpanel import RPanel
+from at614_editor.ui.editors.csv_file_viewer import CsvFileViewer
 from at614_editor.ui.editors.dist_editor import DistEditor
 from at614_editor.ui.editors.external_file_editor import ExternalFileEditor
 from at614_editor.ui.editors.output_viewer import OutputViewer
@@ -236,7 +237,13 @@ class EditorShell(QWidget):
             return
 
         if selection.category_key == "output_banco":
-            self._show_output_viewer(archive_path=selection.path)
+            path = selection.path
+            if path is not None and path.is_file() and path.suffix.lower() == ".csv":
+                self._show_csv_file_viewer(path)
+            elif path is not None and path.is_dir():
+                self._show_folder_overview(path)
+            else:
+                self._show_output_viewer(archive_path=path)
             return
 
         self._show_output_viewer()
@@ -480,6 +487,34 @@ class EditorShell(QWidget):
         else:
             self._set_validation_badge("warning")
             self.right_panel.set_context([], ["Riferimento esterno non risolto nel progetto"], focus_validation=True)
+
+    def _show_csv_file_viewer(self, path: Path) -> None:
+        """Apre direttamente un file CSV senza scansione archivio."""
+        viewer = CsvFileViewer(path)
+        self._replace_content([viewer])
+        self._current_reference_context = []
+        self._set_validation_badge("ok")
+        self.right_panel.set_context([], [])
+
+    def _show_folder_overview(self, path: Path) -> None:
+        """Mostra una panoramica della cartella archivio selezionata."""
+        info_label = QLabel(f"Cartella archivio: {path.name}")
+        info_label.setStyleSheet("font-size: 15px; font-weight: 600;")
+
+        detail_label = QLabel(
+            f"Percorso: {path}\n\n"
+            "Espandi la cartella nell'albero a sinistra per navigare i file CSV,\n"
+            "oppure avvia la scansione completa dell'archivio."
+        )
+        detail_label.setWordWrap(True)
+
+        browse_button = QPushButton("Sfoglia archivio completo…")
+        browse_button.clicked.connect(lambda: self._show_output_viewer(archive_path=path))
+
+        self._replace_content([info_label, detail_label, browse_button])
+        self._current_reference_context = []
+        self._set_validation_badge("ok")
+        self.right_panel.set_context([], [])
 
     def _show_output_viewer(self, archive_path: Path | None = None) -> None:
         if archive_path is None:

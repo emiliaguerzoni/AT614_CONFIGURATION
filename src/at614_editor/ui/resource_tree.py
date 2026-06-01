@@ -3,8 +3,29 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, QThread, Qt, Signal
 from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+
+
+class _DirectoryLoader(QObject):
+    """Carica il contenuto di una cartella in un thread separato."""
+
+    finished = Signal(object, list)  # (directory_path, entries)
+    error = Signal(object, str)      # (directory_path, error_message)
+
+    def __init__(self, directory_path: Path) -> None:
+        super().__init__()
+        self._directory_path = directory_path
+
+    def run(self) -> None:
+        try:
+            entries = sorted(
+                self._directory_path.iterdir(),
+                key=lambda p: (not p.is_dir(), p.name.lower()),
+            )
+            self.finished.emit(self._directory_path, entries)
+        except OSError as exc:
+            self.error.emit(self._directory_path, str(exc))
 
 from at614_editor.domain.project import AT614Project
 
@@ -37,6 +58,7 @@ class ResourceTree(QWidget):
         super().__init__(parent)
         self.project = project
         self._path_items: dict[Path, QTreeWidgetItem] = {}
+        self._pending_dir_threads: list[tuple] = []  # (loader, thread)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -183,19 +205,46 @@ class ResourceTree(QWidget):
         if not isinstance(archive_path, Path):
             return
 
-        item.removeChild(first_child)
-        self._populate_output_archive_items(item, archive_path)
+        # Sostituisce il placeholder con indicatore di caricamento (no block UI)
+        first_child.setText(0, "Caricamento\u2026")
+        first_child.setDisabled(True)
+        self._start_dir_load(item, archive_path)
 
-    def _populate_output_archive_items(self, parent_item: QTreeWidgetItem, directory_path: Path) -> None:
-        try:
-            entries = sorted(directory_path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
-        except OSError:
-            error_item = QTreeWidgetItem(["Impossibile leggere la cartella"]) 
-            error_item.setFlags(error_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-            error_item.setDisabled(True)
-            parent_item.addChild(error_item)
-            return
+    def _start_dir_load(self, item: QTreeWidgetItem, path: Path) -> None:
+        """Avvia il caricamento asincrono del contenuto di una cartella."""
+        loader = _DirectoryLoader(path)
+        thread = QThread()
+        loader.moveToThread(thread)
+        thread.started.connect(loader.run)
+        loader.finished.connect(lambda _p, entries: self._on_dir_loaded(item, entries))
+        loader.error.connect(lambda _p, msg: self._on_dir_error(item, msg))
+        loader.finished.connect(thread.quit)
+        loader.error.connect(thread.quit)
+        # Mantiene un riferimento sia al loader che al thread per evitare il GC
+        pair = (loader, thread)
+        self._pending_dir_threads.append(pair)
+        thread.finished.connect(lambda p=pair: self._pending_dir_threads.remove(p)
+            if p in self._pending_dir_threads else None)
+        thread.finished.connect(loader.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.start()
 
+    def _on_dir_loaded(self, item: QTreeWidgetItem, entries: list) -> None:
+        # Rimuove il placeholder "Caricamento…"
+        if item.childCount() > 0 and item.child(0).text(0) == "Caricamento\u2026":
+            item.removeChild(item.child(0))
+        self._populate_output_archive_items(item, entries)
+
+    def _on_dir_error(self, item: QTreeWidgetItem, message: str) -> None:
+        if item.childCount() > 0 and item.child(0).text(0) == "Caricamento\u2026":
+            item.removeChild(item.child(0))
+        error_item = QTreeWidgetItem([f"Errore: {message}"])
+        error_item.setFlags(error_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+        error_item.setDisabled(True)
+        item.addChild(error_item)
+
+    def _populate_output_archive_items(self, parent_item: QTreeWidgetItem, entries: list) -> None:
+        """Popola i figli di un nodo archivio con le entries pre-caricate (già ordinate)."""
         if not entries:
             empty_item = QTreeWidgetItem(["Cartella vuota"])
             empty_item.setFlags(empty_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
@@ -203,7 +252,6 @@ class ResourceTree(QWidget):
             parent_item.addChild(empty_item)
             return
 
-        archive_root = self._archive_root_for(parent_item)
         for path in entries:
             node_label = path.name
             child_item = QTreeWidgetItem([node_label])
@@ -221,14 +269,6 @@ class ResourceTree(QWidget):
                 placeholder_child = QTreeWidgetItem(["Carica cartella..."])
                 placeholder_child.setFlags(placeholder_child.flags() & ~Qt.ItemFlag.ItemIsSelectable)
                 child_item.addChild(placeholder_child)
-
-    def _archive_root_for(self, item: QTreeWidgetItem) -> Path | None:
-        while item is not None:
-            selection = item.data(0, Qt.ItemDataRole.UserRole)
-            if isinstance(selection, ResourceTreeSelection) and selection.category_key == "output_banco" and selection.path is not None:
-                return selection.path
-            item = item.parent()
-        return None
 
     def _emit_current_selection(self, current: QTreeWidgetItem | None, _previous: QTreeWidgetItem | None) -> None:
         if current is None:
