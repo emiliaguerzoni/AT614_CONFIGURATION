@@ -388,9 +388,9 @@ class SeqEditor(QWidget):
                     tooltip = get_tooltip_for_descriptor(descriptor, row.test_id)
                     if tooltip:
                         field_widget.name_label.setToolTip(tooltip)
-                    logger.debug(f"SeqEditor: resolve_resource_path({raw_value!r})")
+                    logger.debug("SeqEditor: resolve_resource_path(%r)", raw_value)
                     target_path = self.project.resolve_resource_path(raw_value)
-                    logger.debug(f"SeqEditor: set_reference target={target_path}")
+                    logger.debug("SeqEditor: resolved %r -> %s", raw_value, target_path)
                     field_widget.set_reference(raw_value, uses_count=self.project.get_usage_count(target_path))
                     field_widget.open_button.setEnabled(target_path is not None)
                     field_widget.uses_button.setEnabled(target_path is not None)
@@ -498,12 +498,12 @@ class SeqEditor(QWidget):
         self._commit_row(self.current_row_index)
 
     def _sync_common_fields(self) -> None:
-        if self.current_row_index is None:
+        if self.current_row_index is None or self._loading_row:
             return
         self._commit_row(self.current_row_index)
 
     def _sync_and_refresh_current_row(self) -> None:
-        if self.current_row_index is None:
+        if self.current_row_index is None or self._loading_row:
             return
 
         self._commit_row(self.current_row_index)

@@ -59,6 +59,22 @@ def test_project_builds_test_to_resource_references() -> None:
     assert expected_targets.issubset(project.get_uses(source_test))
 
 
+def test_project_resolves_file_reference_with_leading_description_prefix() -> None:
+    from at614_editor.domain.project import _resolve_resource_path
+
+    resource_index = {
+        "example.txt": {Path("\\\\server\\share\\PRODUZIONE\\EXAMPLE.txt")},
+        "example": {Path("\\\\server\\share\\PRODUZIONE\\EXAMPLE.txt")},
+    }
+    resolved = _resolve_resource_path(
+        resource_index,
+        "parametri banco gianluca example.txt",
+        Path("\\\\server\\share\\PRODUZIONE"),
+    )
+
+    assert resolved == Path("\\\\server\\share\\PRODUZIONE\\EXAMPLE.txt")
+
+
 def test_project_tracks_unresolved_test_file_references() -> None:
     project = load_project(FIXTURES_ROOT)
 

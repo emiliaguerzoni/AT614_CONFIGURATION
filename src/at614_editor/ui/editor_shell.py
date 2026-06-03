@@ -62,6 +62,7 @@ class EditorShell(QWidget):
         self.history: list[ResourceTreeSelection] = []
         self.history_index: int = -1
         self._is_navigating = False
+        self._suppress_save_prompt = False
         self._last_selection: ResourceTreeSelection | None = None
 
         layout = QHBoxLayout(self)
@@ -178,7 +179,7 @@ class EditorShell(QWidget):
         if selection == self._last_selection:
             return
 
-        if not self._prompt_save_if_dirty():
+        if not self._suppress_save_prompt and not self._prompt_save_if_dirty():
             # Ripristina selezione nell'albero in modo silenzioso
             self._is_navigating = True
             try:
@@ -321,6 +322,30 @@ class EditorShell(QWidget):
 
         self.show_empty_state()
 
+    def _build_save_error_message(self, path: Path | None, exc: OSError) -> str:
+        suggestions = []
+        if path is not None:
+            suggestions.append(f"Percorso: {path}")
+
+        if isinstance(exc, PermissionError) or getattr(exc, "winerror", None) in {5, 32} or exc.errno in {5, 13, 32}:
+            suggestions.append(
+                "Impossibile scrivere sul file. Verifica i permessi e controlla che il file non sia aperto da un altro utente o processo."
+            )
+        elif exc.errno == 2:
+            suggestions.append(
+                "Il percorso non è stato trovato. Controlla che la condivisione di rete sia raggiungibile."
+            )
+        else:
+            suggestions.append(
+                "Controlla che la condivisione di rete sia disponibile e che tu abbia accesso in scrittura."
+            )
+
+        return (
+            f"Impossibile salvare il file.\n\n"
+            f"Errore: {exc}\n\n"
+            f"".join(f"{item}\n" for item in suggestions)
+        )
+
     def save_current_resource(self) -> Path | None:
         if not self.current_editor or not getattr(self.current_editor, "supports_save", False):
             return None
@@ -337,11 +362,36 @@ class EditorShell(QWidget):
         if save_changes is None:
             return None
 
-        saved_path = save_changes()
-        if getattr(self.current_editor, "is_dirty", lambda: False)():
+        source_path = self._current_source_path()
+        try:
+            saved_path = save_changes()
+        except OSError as exc:
+            QMessageBox.critical(
+                self,
+                "Errore di salvataggio",
+                self._build_save_error_message(source_path, exc),
+            )
+            logger.exception("EditorShell: errore durante il salvataggio del file %s", source_path)
+            return None
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Errore di salvataggio",
+                f"Impossibile salvare il file.\n\nErrore imprevisto: {exc}\n\n"
+                "Verifica i permessi e riprova.",
+            )
+            logger.exception("EditorShell: errore imprevisto durante il salvataggio del file %s", source_path)
+            return None
+
+        # Forza il re-render dell'editor dopo il salvataggio:
+        # resettando _last_selection, show_selection non salterà la stessa selezione
+        # e Qt rifirerà currentItemChanged anche se l'item è già corrente.
+        self._last_selection = None
+        self._suppress_save_prompt = True
+        try:
             self._reload_project(saved_path)
-            # Reimpostare lo stato is_dirty a False se l'editor gestisce un modello interno,
-            # ma il reload dell'albero e della UI ri-crea l'editor da zero, quindi va bene.
+        finally:
+            self._suppress_save_prompt = False
         return saved_path
 
     def _prompt_save_if_dirty(self) -> bool:

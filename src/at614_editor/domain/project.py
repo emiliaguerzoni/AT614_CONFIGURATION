@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -11,6 +13,9 @@ from at614_editor.domain.parsers.point_series import parse as parse_point_series
 from at614_editor.domain.parsers.test_csv import parse as parse_test_csv
 from at614_editor.domain.settings_ini import parse_settings_ini
 from at614_editor.domain.test_schema import extract_test_file_references
+
+logger = logging.getLogger(__name__)
+_NORMALIZE_SEPARATOR_RE = re.compile(r"[\\/\s_]+")
 
 
 POINT_SERIES_DIRECTORIES = ("CURVE_COMANDO", "CURVE_LIMITE", "RAMPE_XY")
@@ -52,7 +57,7 @@ class AT614Project:
         return self.unresolved_file_references.get(source, set())
 
     def resolve_resource_path(self, raw_value: str) -> Path | None:
-        resolved_path = _resolve_resource_path(self.resource_index, raw_value)
+        resolved_path = _resolve_resource_path(self.resource_index, raw_value, self.folder_configurazione_moduli)
         if resolved_path is not None:
             return resolved_path
 
@@ -74,7 +79,10 @@ class AT614Project:
 
 
 def _normalize_resource_key(raw_value: str) -> str:
-    return raw_value.strip().replace("\\", "/").lower()
+    normalized = raw_value.strip().lower()
+    normalized = normalized.replace("\\", "/")
+    normalized = _NORMALIZE_SEPARATOR_RE.sub(" ", normalized)
+    return normalized.strip()
 
 
 def _add_resource_alias(resource_index: dict[str, set[Path]], alias: str, path: Path) -> None:
@@ -116,20 +124,94 @@ def _pick_unique_path(candidates: set[Path] | None) -> Path | None:
     return next(iter(candidates))
 
 
-def _resolve_resource_path(resource_index: dict[str, set[Path]], value: str) -> Path | None:
+def _pick_preferred_path(candidates: set[Path], preferred_root: Path | None = None) -> Path | None:
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return next(iter(candidates))
+
+    if preferred_root is not None:
+        direct_children = [p for p in candidates if p.parent == preferred_root]
+        if len(direct_children) == 1:
+            return direct_children[0]
+        if direct_children:
+            return sorted(direct_children, key=lambda p: (len(p.parts), str(p)))[0]
+
+    return sorted(candidates, key=lambda p: (len(p.parts), str(p)))[0]
+
+
+def _find_best_suffix_match(resource_index: dict[str, set[Path]], normalized_value: str) -> tuple[str, set[Path]] | None:
+    best_key: str | None = None
+    best_paths: set[Path] | None = None
+    for alias, paths in resource_index.items():
+        if alias == normalized_value:
+            continue
+        if normalized_value.endswith(alias):
+            if best_key is None or len(alias) > len(best_key):
+                best_key = alias
+                best_paths = paths
+    if best_key is None:
+        return None
+    return best_key, best_paths  # type: ignore[return-value]
+
+
+def _resolve_resource_path(resource_index: dict[str, set[Path]], value: str, preferred_root: Path | None = None) -> Path | None:
     normalized_value = _normalize_resource_key(value)
     if not normalized_value:
         return None
 
-    resolved_exact = _pick_unique_path(resource_index.get(normalized_value))
-    if resolved_exact is not None:
-        return resolved_exact
+    exact_candidates = resource_index.get(normalized_value)
+    if exact_candidates:
+        resolved_exact = _pick_unique_path(exact_candidates)
+        if resolved_exact is not None:
+            logger.debug("resolve_resource_path: exact match %r -> %s", normalized_value, resolved_exact)
+            return resolved_exact
+        logger.debug(
+            "resolve_resource_path: ambiguous exact match %r, candidates=%s",
+            normalized_value,
+            sorted(str(p) for p in exact_candidates),
+        )
+        preferred = _pick_preferred_path(exact_candidates, preferred_root)
+        if preferred is not None:
+            logger.debug("resolve_resource_path: preferred exact candidate %s", preferred)
+            return preferred
 
     file_name = normalized_value.rsplit("/", 1)[-1]
-    if file_name == normalized_value:
-        return None
+    file_candidates = resource_index.get(file_name)
+    if file_candidates:
+        candidate = _pick_unique_path(file_candidates)
+        if candidate is not None:
+            logger.debug("resolve_resource_path: file-name fallback %r -> %s", file_name, candidate)
+            return candidate
+        logger.debug(
+            "resolve_resource_path: ambiguous file-name fallback %r, candidates=%s",
+            file_name,
+            sorted(str(p) for p in file_candidates),
+        )
+        preferred = _pick_preferred_path(file_candidates, preferred_root)
+        if preferred is not None:
+            logger.debug("resolve_resource_path: preferred file-name candidate %s", preferred)
+            return preferred
 
-    return _pick_unique_path(resource_index.get(file_name))
+    suffix_match = _find_best_suffix_match(resource_index, normalized_value)
+    if suffix_match is not None:
+        suffix_key, suffix_candidates = suffix_match
+        candidate = _pick_unique_path(suffix_candidates)
+        if candidate is not None:
+            logger.debug("resolve_resource_path: suffix match %r -> %s", suffix_key, candidate)
+            return candidate
+        preferred = _pick_preferred_path(suffix_candidates, preferred_root)
+        if preferred is not None:
+            logger.debug("resolve_resource_path: preferred suffix candidate %s", preferred)
+            return preferred
+        logger.debug(
+            "resolve_resource_path: ambiguous suffix match %r, candidates=%s",
+            suffix_key,
+            sorted(str(p) for p in suffix_candidates),
+        )
+
+    logger.debug("resolve_resource_path: no fallback match for %r", file_name)
+    return None
 
 
 def _index_distributore_references(project: AT614Project) -> None:
@@ -219,6 +301,30 @@ def load_project(root_path: Path, settings_ini_path: Path | None = None) -> AT61
                 for path in sorted(mms2218_dir.glob("*.csv")):
                     mms2218_resources[path] = parse_mms2218(path)
 
+    # Costruisce l'indice base dai file locali sotto root_path
+    resource_index = _build_resource_file_index(root_path)
+
+    # Estende l'indice con le risorse già caricate da percorsi di rete:
+    # in questo modo resolve_resource_path() funziona anche per file su share.
+    for _path in (
+        list(distributori)
+        + list(test_sequences)
+        + list(point_series_resources)
+        + list(ce16_resources)
+        + list(mms2218_resources)
+    ):
+        _add_resource_alias(resource_index, _path.name, _path)
+        _add_resource_alias(resource_index, _path.stem, _path)
+
+    # Indicizza i file .txt di FolderConfigurazioneModuli (parametri SCRITTURA_PARAMETRI)
+    if folder_configurazione_moduli is not None and folder_configurazione_moduli.exists():
+        try:
+            for _txt_path in sorted(folder_configurazione_moduli.rglob("*.txt")):
+                _add_resource_alias(resource_index, _txt_path.name, _txt_path)
+                _add_resource_alias(resource_index, _txt_path.stem, _txt_path)
+        except OSError:
+            pass  # percorso di rete temporaneamente irraggiungibile → nessun indice parziale
+
     project = AT614Project(
         root_path=root_path,
         distributori=distributori,
@@ -226,7 +332,7 @@ def load_project(root_path: Path, settings_ini_path: Path | None = None) -> AT61
         point_series_resources=point_series_resources,
         ce16_resources=ce16_resources,
         mms2218_resources=mms2218_resources,
-        resource_index=_build_resource_file_index(root_path),
+        resource_index=resource_index,
         folder_configurazione_moduli=folder_configurazione_moduli,
         folder_graph_saved=folder_graph_saved,
         folder_graph_saved_last_acq=folder_graph_saved_last_acq,
